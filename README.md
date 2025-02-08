@@ -18,8 +18,8 @@ resources, never by accessing data directly.
    Right now it works directly with Open AI, using an environment variable.
 2. Some easier ways to do the chat on a loop where the interface is something like a chat window
    in liveview. Streaming responses to callers.
-3. Some kind of management of how much of the context window we are using. How much chat history,
-   how big the functions are.
+3. Some kind of management of how much of the context window we are using. Trim chat history to keep
+   context window small.
 4. Customization of the initial system prompt.
 5. At _least_ one test should be written :D
 
