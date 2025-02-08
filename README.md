@@ -16,17 +16,12 @@ resources, never by accessing data directly.
 
 1. Must be made agnostic to provider.
    Right now it works directly with Open AI, using an environment variable.
-2. There are limits to the amount of functions that can be provided when chatting
-   if there are too many resources/actions, we need to group them and allow the chat
-   bot to ask to expand on groups of functions (via a tool).
-3. Some easier to do the chat on a loop where the interface is something like a chat window
-   in liveview.
-4. Some kind of management of how much of the context window we are using. How much chat history,
+2. Some easier ways to do the chat on a loop where the interface is something like a chat window
+   in liveview. Streaming responses to callers.
+3. Some kind of management of how much of the context window we are using. How much chat history,
    how big the functions are.
-5. A string format for filters (maybe) so we can give it a format instead of a massive json schema
-   of filters.
-6. Customization of the initial system prompt.
-7. At _least_ one test should be written :D
+4. Customization of the initial system prompt.
+5. At _least_ one test should be written :D
 
 ## What else ought to happen?
 

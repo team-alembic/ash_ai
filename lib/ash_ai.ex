@@ -3,6 +3,19 @@ defmodule AshAi do
   Documentation for `AshAi`.
   """
 
+  @ai_agent %Spark.Dsl.Section{
+    name: :ai_agent,
+    schema: [
+      expose: [
+        type: {:or, [{:list, :atom}, {:literal, :*}]},
+        doc: "The list of actions to expose to the agent, or :* for everything",
+        default: []
+      ]
+    ]
+  }
+
+  use Spark.Dsl.Extension, sections: [@ai_agent]
+
   defimpl Jason.Encoder, for: OpenApiSpex.Schema do
     def encode(value, opts) do
       OpenApiSpex.OpenApi.to_map(value) |> Jason.Encoder.Map.encode(opts)
@@ -97,7 +110,7 @@ defmodule AshAi do
         :done
 
       {:ok, last_message, messages} ->
-        IO.puts(String.trim(last_message))
+        IO.puts(String.trim(last_message || ""))
 
         case String.trim(Mix.shell().prompt("❯ ")) do
           quit when quit in ["quit", "exit", "stop", "n"] ->
@@ -106,7 +119,7 @@ defmodule AshAi do
           message ->
             iex_chat(
               message,
-              %{opts | messages: messages ++ [OpenaiEx.ChatMessage.system(last_message)]}
+              %{opts | messages: messages ++ [OpenaiEx.ChatMessage.user(last_message)]}
             )
         end
     end
@@ -119,8 +132,6 @@ defmodule AshAi do
 
   def instruct(prompt, opts \\ []) do
     opts = Options.validate!(opts)
-
-    functions = functions(opts)
 
     apikey = System.fetch_env!("OPEN_AI_API_KEY")
     openai = OpenaiEx.new(apikey)
@@ -140,9 +151,6 @@ defmodule AshAi do
           """
         else
           """
-          Your job is to operate the application. The user has not identified themself.
-          If you need to know the user, say something like "an actor must be provided to fulfill this request".
-
           Do not make assumptions about what you can or cannot do. All actions are secure,
           and will forbid any unauthorized actions.
           """
@@ -152,21 +160,31 @@ defmodule AshAi do
     messages =
       opts.messages ++
         [
-          OpenaiEx.ChatMessage.system(system),
+          OpenaiEx.ChatMessage.developer(system),
           OpenaiEx.ChatMessage.user(prompt)
         ]
 
-    fn_req =
-      OpenaiEx.Chat.Completions.new(
-        model: "gpt-4o-mini",
-        messages: messages,
-        tools: functions,
-        tool_choice: "auto"
-      )
+    case functions(openai, messages, opts) do
+      {message_res, message, messages} when message_res in [:complete, :message] ->
+        {:ok, message, messages}
 
-    openai
-    |> OpenaiEx.Chat.Completions.create!(fn_req)
-    |> call_until_complete(opts.actor, openai, functions, messages)
+      {:functions, [%{function: %{name: "complete"}}]} ->
+        message = "I could find no actions available or appropriate to take in this situation."
+        {:ok, message, messages ++ [OpenaiEx.ChatMessage.assistant(message)]}
+
+      {:functions, content, functions, messages} ->
+        fn_req =
+          OpenaiEx.Chat.Completions.new(
+            model: "gpt-4o-mini",
+            messages: messages,
+            tools: functions,
+            tool_choice: "auto"
+          )
+
+        openai
+        |> OpenaiEx.Chat.Completions.create!(fn_req)
+        |> call_until_complete(opts.actor, openai, functions, messages, content)
+    end
   end
 
   defp call_until_complete(
@@ -177,6 +195,7 @@ defmodule AshAi do
                  %{
                    "tool_calls" => [
                      %{
+                       "id" => id,
                        "function" => %{
                          "name" => "complete",
                          "arguments" => arguments
@@ -192,23 +211,31 @@ defmodule AshAi do
          _actor,
          _openai,
          _functions,
-         messages
+         messages,
+         content
        ) do
     arguments = Jason.decode!(arguments)
-    {:ok, arguments["message"], messages ++ [message]}
+
+    {:ok, add_to_content(content, arguments["message"]),
+     messages ++ [message, tool_call_result("", id, "complete")]}
   end
 
   defp call_until_complete(
-         %{"choices" => [%{"finish_reason" => "stop", "message" => %{"content" => content}}]},
+         %{
+           "choices" => [
+             %{"finish_reason" => "stop", "message" => %{"content" => content} = message}
+           ]
+         },
          _actor,
          _openai,
          _functions,
-         messages
+         messages,
+         new_content
        ) do
-    {:ok, content, messages}
+    {:ok, add_to_content(content, new_content), messages ++ [message]}
   end
 
-  defp call_until_complete(%{"choices" => choices}, actor, openai, functions, messages) do
+  defp call_until_complete(%{"choices" => choices}, actor, openai, functions, messages, content) do
     choice = Enum.at(choices, 0)["message"]
 
     if Enum.empty?(choice["tool_calls"] || []) do
@@ -217,8 +244,8 @@ defmodule AshAi do
 
     tool_call_results =
       Enum.flat_map(choice["tool_calls"], fn
-        %{"function" => %{"name" => "complete"}} ->
-          []
+        %{"function" => %{"name" => "complete"}, "id" => id} = message ->
+          [message, tool_call_result("", id, "complete")]
 
         %{"function" => %{"name" => name, "arguments" => arguments}, "id" => id} ->
           try do
@@ -334,82 +361,299 @@ defmodule AshAi do
 
     messages = messages ++ [choice | tool_call_results]
 
-    fn_req =
-      OpenaiEx.Chat.Completions.new(
-        model: "gpt-4o-mini",
-        messages: messages,
-        tools: functions,
-        tool_choice: "auto"
-      )
+    case Enum.find(choice["tool_calls"] || [], &(&1["function"]["name"] == "complete")) do
+      nil ->
+        fn_req =
+          OpenaiEx.Chat.Completions.new(
+            model: "gpt-4o-mini",
+            messages: messages,
+            tools: functions,
+            tool_choice: "auto"
+          )
 
-    openai
-    |> OpenaiEx.Chat.Completions.create!(fn_req)
-    |> call_until_complete(actor, openai, functions, messages)
+        openai
+        |> OpenaiEx.Chat.Completions.create!(fn_req)
+        |> call_until_complete(actor, openai, functions, messages, content)
+
+      _ ->
+        {:ok, content, messages}
+    end
   end
 
   defp tool_call_result(result, id, name) do
     OpenaiEx.ChatMessage.tool(id, name, result)
   end
 
-  defp functions(opts) do
-    opts
-    |> actions()
-    |> Enum.map(fn {domain, resource, action} ->
-      inputs =
-        AshJsonApi.OpenApi.write_attributes(
-          resource,
-          action.arguments,
-          action,
-          %{type: :action, route: "/"},
-          :json
-        )
-        |> then(fn attrs ->
-          %{
-            type: :object,
-            properties:
-              %{
-                input: %{
-                  type: :object,
-                  properties: attrs
-                }
-              }
-              |> add_action_specific_properties(resource, action)
+  # Seems like we should just always have them select an action first. Its a simpler architecture
+  @function_limit 1
+
+  @complete %{
+    type: :function,
+    function: %{
+      name: "complete",
+      description: "Call this when the users original request has been fulfilled",
+      parameters: %{
+        type: :object,
+        properties: %{
+          message: %{
+            type: :string,
+            description:
+              "The message to the user finalizing completion of the task, explaining what was done."
           }
-        end)
-        |> Jason.encode!()
-
-      name =
-        "#{String.replace(inspect(domain), ".", "_")}-#{String.replace(inspect(resource), ".", "_")}-#{action.name}"
-
-      %{
-        type: :function,
-        function: %{
-          name: name,
-          description:
-            action.description ||
-              "Call the #{action.name} action on the #{inspect(resource)} resource",
-          parameters: inputs |> Jason.decode!()
         }
       }
-    end)
-    |> Enum.concat([
-      %{
-        type: :function,
-        function: %{
-          name: "complete",
-          description: "Call this when the users original request has been fulfilled",
-          parameters: %{
-            type: :object,
-            properties: %{
-              message: %{
-                type: :string,
-                description: "The message to explain why the tool is complete."
-              }
+    }
+  }
+
+  defp pick_action(actions, openai, messages) do
+    if Enum.count_until(actions, @function_limit) == @function_limit do
+      actions_map =
+        Map.new(actions, fn {domain, resource, action} ->
+          {"#{inspect(domain)}.#{inspect(resource)}.#{action.name}", {domain, resource, action}}
+        end)
+
+      action_options =
+        actions_map
+        |> Enum.group_by(fn {_key, {domain, _resource, _action}} -> domain end)
+        |> Enum.map(fn {domain, domain_actions} ->
+          resources =
+            domain_actions
+            |> Enum.group_by(fn {_key, {_domain, resource, _action}} -> resource end)
+            |> Enum.map(fn {resource, resource_actions} ->
+              action_descriptions =
+                Enum.map(resource_actions, fn {key, {_domain, _resource, action}} ->
+                  description =
+                    action.description ||
+                      "Call the #{action.name} action on the #{inspect(resource)} resource"
+
+                  inputs =
+                    Ash.Resource.Info.action_inputs(resource, action)
+                    |> Enum.filter(&is_atom/1)
+                    |> Enum.map(fn name ->
+                      attr =
+                        Enum.find(action.arguments, &(&1.name == name)) ||
+                          Ash.Resource.Info.attribute(resource, name)
+
+                      "#{name} :: #{inspect(attr.type)}"
+                    end)
+                    |> Enum.join(", ")
+
+                  "- #{key}(#{inputs}) | #{action.type} | #{description}"
+                end)
+                |> Enum.join("\n")
+
+              """
+              ### #{inspect(resource)}
+              #{action_descriptions}
+              """
+            end)
+            |> Enum.join("\n\n")
+
+          """
+          ## #{inspect(domain)}
+          #{resources}
+          """
+        end)
+        |> Enum.join("\n\n")
+
+      functions = [select_action(Map.keys(actions_map)), @complete]
+
+      prompt =
+        """
+        Select from the following actions to take, or call the complete function if there is nothing left or nothing appropriate to do.
+
+        Read actions support being filtered further on input
+
+        Feel free to ask the user clarifying questions before selecting an action if necessary.
+
+        #{action_options}
+        """
+
+      messages = messages ++ [OpenaiEx.ChatMessage.developer(prompt)]
+
+      fn_req =
+        OpenaiEx.Chat.Completions.new(
+          model: "gpt-4o-mini",
+          messages: messages,
+          tools: functions,
+          tool_choice: "auto"
+        )
+
+      resp =
+        openai
+        |> OpenaiEx.Chat.Completions.create!(fn_req)
+
+      choice = Enum.at(resp["choices"], 0)["message"]
+
+      messages = messages ++ [choice]
+
+      choice["tool_calls"]
+      |> Kernel.||([])
+      |> Enum.reduce({choice["content"], messages, false, nil}, fn
+        %{
+          "id" => id,
+          "function" => %{
+            "name" => "complete",
+            "arguments" => arguments
+          }
+        },
+        {content, messages, _done?, action} ->
+          arguments = Jason.decode!(arguments)
+
+          {add_to_content(content, arguments["reason"]),
+           messages ++ [tool_call_result("", id, "complete")], true, action}
+
+        %{
+          "id" => id,
+          "function" => %{"name" => "select_action", "arguments" => arguments}
+        },
+        {content, messages, done?, action} ->
+          arguments = Jason.decode!(arguments)
+
+          case Map.fetch(actions_map, arguments["action"]) do
+            {:ok, action} ->
+              {content,
+               messages ++
+                 [
+                   tool_call_result(
+                     "action selected: #{arguments["action"]}: #{arguments["reason"]}",
+                     id,
+                     "complete"
+                   )
+                 ], done?, action}
+
+            :error ->
+              if action do
+                {content,
+                 messages ++
+                   [tool_call_result("", id, "complete")], done?, action}
+              else
+                text = "No appropriate action could be found to take to fulfill request."
+
+                {add_to_content(content, text),
+                 messages ++
+                   [tool_call_result(text, id, "complete")], done?, action}
+              end
+          end
+      end)
+      |> case do
+        {content, messages, _, action} when not is_nil(action) ->
+          {:chosen, content, action, messages}
+
+        {content, messages, true, _} ->
+          {:complete, content, messages}
+
+        {content, messages, false, _} ->
+          {:message, content, messages}
+      end
+    else
+      {:no_need, actions}
+    end
+  end
+
+  defp add_to_content(v, new_content) when v in [nil, ""] do
+    new_content
+  end
+
+  defp add_to_content(content, new_content) when new_content in [nil, ""] do
+    content
+  end
+
+  defp add_to_content(content, new_content) do
+    content <> "\n\n" <> new_content
+  end
+
+  defp select_action(options) do
+    %{
+      type: :function,
+      function: %{
+        name: "select_action",
+        description: "Call this to select an action to perform.",
+        parameters: %{
+          type: :object,
+          properties: %{
+            action: %{
+              type: :string,
+              description: "The action you wish to take",
+              enum: options
+            },
+            reason: %{
+              type: :string,
+              description: "The reason you wish to take this action"
             }
           }
         }
       }
-    ])
+    }
+  end
+
+  @doc false
+  def functions(openai, messages, opts) when is_list(opts) do
+    functions(openai, messages, Options.validate!(opts))
+  end
+
+  def functions(openai, messages, opts) do
+    opts
+    |> actions()
+    |> pick_action(openai, messages)
+    |> case do
+      {:message, message, messages} ->
+        {:message, message, messages}
+
+      {:chosen, content, {domain, resource, action}, messages} ->
+        {:functions, content, [function(domain, resource, action), @complete], messages}
+
+      {:complete, message, messages} ->
+        {:complete, message, messages}
+
+      {:no_need, actions} ->
+        Enum.map(actions, fn {domain, resource, action} ->
+          function(domain, resource, action)
+        end)
+        |> Enum.concat([@complete])
+        |> then(&{:functions, "", &1, messages})
+    end
+  end
+
+  defp function(domain, resource, action) do
+    inputs =
+      AshJsonApi.OpenApi.write_attributes(
+        resource,
+        action.arguments,
+        action,
+        %{type: :action, route: "/"},
+        :json
+      )
+      |> then(fn attrs ->
+        %{
+          type: :object,
+          properties:
+            %{
+              input: %{
+                type: :object,
+                properties: attrs
+              }
+            }
+            |> add_action_specific_properties(resource, action)
+        }
+      end)
+      |> Jason.encode!()
+
+    name =
+      "#{String.replace(inspect(domain), ".", "_")}-#{String.replace(inspect(resource), ".", "_")}-#{action.name}"
+
+    description =
+      action.description ||
+        "Call the #{action.name} action on the #{inspect(resource)} resource"
+
+    %{
+      type: :function,
+      function: %{
+        name: name,
+        description: description,
+        parameters: inputs |> Jason.decode!()
+      }
+    }
   end
 
   defp add_action_specific_properties(properties, resource, %{type: :read}) do
@@ -488,7 +732,12 @@ defmodule AshAi do
 
   defp add_action_specific_properties(properties, _resource, _action), do: properties
 
-  defp actions(opts) do
+  @doc false
+  def actions(opts) when is_list(opts) do
+    actions(Options.validate!(opts))
+  end
+
+  def actions(opts) do
     if opts.actions do
       Enum.flat_map(opts.actions, fn {resource, actions} ->
         if !Ash.Resource.Info.domain(resource) do
@@ -518,7 +767,10 @@ defmodule AshAi do
 
       for domain <- Application.get_env(opts.otp_app, :ash_domains) || [],
           resource <- Ash.Domain.Info.resources(domain),
-          action <- Ash.Resource.Info.actions(resource) do
+          action <- Ash.Resource.Info.actions(resource),
+          AshAi in Spark.extensions(resource),
+          action.name in AshAi.Info.ai_agent_expose!(resource),
+          can?(opts.actor, domain, resource, action) do
         {domain, resource, action}
       end
       |> Enum.uniq_by(fn {_domain, resource, action} ->
@@ -535,5 +787,9 @@ defmodule AshAi do
       end)
       |> Enum.take(32)
     end
+  end
+
+  defp can?(actor, domain, resource, action) do
+    Ash.can?({resource, action}, actor, domain: domain, maybe_is: true, run_queries?: false)
   end
 end
