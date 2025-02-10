@@ -23,7 +23,8 @@ defmodule AshAi.MixProject do
     [
       {:openai_ex, "~> 0.8"},
       {:ash, "~> 3.0"},
-      {:ash_json_api, github: "ash-project/ash_json_api"},
+      # {:ash_json_api, github: "ash-project/ash_json_api"},
+      {:ash_json_api, path: "../../ash/ash_json_api"},
       {:open_api_spex, "~> 3.0"},
       {:igniter, "~> 0.5", optional: true}
       # {:dep_from_hexpm, "~> 0.3.0"},

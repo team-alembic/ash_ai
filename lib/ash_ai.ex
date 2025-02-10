@@ -307,6 +307,8 @@ defmodule AshAi do
         %{"function" => %{"name" => name, "arguments" => arguments}, "id" => id} ->
           try do
             arguments = Jason.decode!(arguments)
+            IO.inspect(name)
+            IO.inspect(arguments)
 
             [domain, resource, action] = String.split(name, "-")
 
@@ -338,7 +340,7 @@ defmodule AshAi do
                   |> Enum.join(",")
 
                 resource
-                |> Ash.Query.limit(arguments["limit"])
+                |> Ash.Query.limit(arguments["limit"] || 100)
                 |> Ash.Query.offset(arguments["offset"])
                 |> Ash.Query.load(arguments["load"])
                 |> then(fn query ->
@@ -410,7 +412,9 @@ defmodule AshAi do
             end
           rescue
             e ->
-              inspect(Exception.format(:error, e, __STACKTRACE__))
+              Exception.format(:error, e, __STACKTRACE__)
+              |> tap(&IO.puts(&1))
+              |> inspect()
               |> tool_call_result(id, name)
               |> List.wrap()
           end
@@ -525,11 +529,21 @@ defmodule AshAi do
 
         - Ask the system for more information on one of the below actions. 
           Especially useful for read actions to see what kind of filters, 
-          sorts and loads are at your disposal.
-          (`ask_about_action` tool call)
-        - Select from the below actions to take (`select_action` tool call)
+          sorts and loads are at your disposal. Do not ask the user for permission
+          to do this, just do it if you want to. (`ask_about_action` tool call)
+
+        - Select from the below actions to take. Remember: ALL FILTERED FIELDS
+          MUST INCLUDE A COMPARISON PREDICATE like `eq` or `greater_than`.
+          (`select_action` tool call)
+          
         - call the complete function if there is nothing left or appropriate to do.
         - respond to the user to do things like ask clarifying questions, using no tools
+
+        Remember that read actions support rich filters and sorts. Instead of 
+        When a user asks to search, prefer sorting by vector similarity and limiting over
+        filtering by vector similarity.
+        ask about potentially relevant actions to see if they have filters that can be used
+        to fulfill the search. You should favor vector similarity filters wherever possible.
 
         #{action_options}
         """
@@ -554,6 +568,28 @@ defmodule AshAi do
 
       choice["tool_calls"]
       |> Kernel.||([])
+      |> Enum.map(fn
+        %{"function" => %{"name" => name}} = call ->
+          # sometimes it thinks it can call these again when
+          # it was not presented with those options
+          # we pretend that it just asked for info
+          case Map.fetch(actions_map, name) do
+            {:ok, _} ->
+              %{
+                call
+                | "function" => %{
+                    "name" => "ask_about_action",
+                    "arguments" =>
+                      Jason.encode!(%{
+                        "action" => name
+                      })
+                  }
+              }
+
+            _ ->
+              call
+          end
+      end)
       |> Enum.reduce({choice["content"], messages, false, nil}, fn
         %{
           "id" => id,
@@ -776,16 +812,21 @@ defmodule AshAi do
     Map.merge(properties, %{
       filter: %{
         type: :object,
+        description:
+          "Filter results. Remember, *AT LEAST ONE COMPARISON PREDICATE FOR FIELDS IS REQUIRED* like `eq` or `greater_than`.",
         # querying is complex, will likely need to be a two step process
         # i.e first decide to query, and then provide it with a function to call
         # that has all the options Then the filter object can be big & expressive.
         properties:
           Ash.Resource.Info.fields(resource, [:attributes, :calculations])
-          |> Enum.filter(& &1.public?)
+          |> Enum.filter(&(&1.public? && &1.filterable?))
           |> Enum.map(fn field ->
             {field.name, AshJsonApi.OpenApi.raw_filter_type(field, resource)}
           end)
           |> Enum.into(%{})
+          |> Jason.encode!()
+          |> Jason.decode!()
+          |> IO.inspect()
       },
       load: %{
         type: :array,
@@ -804,7 +845,7 @@ defmodule AshAi do
       limit: %{
         type: :integer,
         description: "The maximum number of records to return",
-        default: 10
+        default: 100
       },
       offset: %{
         type: :integer,
@@ -815,25 +856,27 @@ defmodule AshAi do
         type: :array,
         items: %{
           type: :object,
-          properties: %{
-            field: %{
-              type: :string,
-              description: "The field to sort by",
-              enum:
-                Ash.Resource.Info.fields(resource, [
-                  :attributes,
-                  :calculations,
-                  :aggregates
-                ])
-                |> Enum.filter(& &1.public?)
-                |> Enum.map(& &1.name)
-            },
-            direction: %{
-              type: :string,
-              description: "The direction to sort by",
-              enum: ["asc", "desc"]
+          properties:
+            %{
+              field: %{
+                type: :string,
+                description: "The field to sort by",
+                enum:
+                  Ash.Resource.Info.fields(resource, [
+                    :attributes,
+                    :calculations,
+                    :aggregates
+                  ])
+                  |> Enum.filter(&(&1.public? && &1.sortable?))
+                  |> Enum.map(& &1.name)
+              },
+              direction: %{
+                type: :string,
+                description: "The direction to sort by",
+                enum: ["asc", "desc"]
+              }
             }
-          }
+            |> add_input_for_fields(resource)
         }
       }
     })
@@ -847,6 +890,52 @@ defmodule AshAi do
   end
 
   defp add_action_specific_properties(properties, _resource, _action), do: properties
+
+  defp add_input_for_fields(sort_obj, resource) do
+    resource
+    |> Ash.Resource.Info.fields([
+      :calculations
+    ])
+    |> Enum.filter(&(&1.public? && &1.sortable? && !Enum.empty?(&1.arguments)))
+    |> case do
+      [] ->
+        sort_obj
+
+      fields ->
+        input_for_fields =
+          %{
+            type: :object,
+            additonalProperties: false,
+            properties:
+              Map.new(fields, fn field ->
+                inputs =
+                  Enum.map(field.arguments, fn argument ->
+                    {argument.name,
+                     AshJsonApi.OpenApi.resource_write_attribute_type(argument, :create)}
+                  end)
+
+                required =
+                  Enum.flat_map(field.arguments, fn argument ->
+                    if argument.allow_nil? do
+                      []
+                    else
+                      [argument.name]
+                    end
+                  end)
+
+                {field.name,
+                 %{
+                   type: :object,
+                   properties: Map.new(inputs),
+                   required: required,
+                   additionalProperties: false
+                 }}
+              end)
+          }
+
+        Map.put(sort_obj, :input_for_fields, input_for_fields)
+    end
+  end
 
   @doc false
   def actions(opts) when is_list(opts) do

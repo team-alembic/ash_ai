@@ -52,14 +52,18 @@ defmodule AshAi.Transformers.Vectorize do
     end
   end
 
-  defbuilder vectorize_attribute(dsl_state, {_source, dest}) do
+  defbuilder vectorize_attribute(dsl_state, {source, dest}) do
     dsl_state
-    |> add_new_attribute(dest, :vector)
+    |> add_new_attribute(dest, :vector,
+      constraints: [dimensions: 3072],
+      select_by_default?: false
+    )
     |> add_new_calculation(
-      :"#{dest}_vector_distance",
+      :"#{source}_vector_similarity",
       :float,
-      {AshAi.Calculations.VectorDistance, name: dest},
+      {AshAi.Calculations.VectorSimilarity, name: dest},
       public?: true,
+      constraints: [max: 1.0, min: 0.0],
       arguments: [
         build_calculation_argument(:query, :string, allow_nil?: false),
         build_calculation_argument(:distance_algorithm, :atom,
@@ -81,12 +85,16 @@ defmodule AshAi.Transformers.Vectorize do
         case AshAi.Info.vectorize_strategy!(dsl_state) do
           :after_action ->
             dsl_state
-            |> add_new_attribute(name, :vector)
+            |> add_new_attribute(name, :vector,
+              constraints: [dimensions: 3072],
+              select_by_default?: false
+            )
             |> add_new_calculation(
-              :"#{name}_vector_distance",
+              :full_text_vector_similarity,
               :float,
-              {AshAi.Calculations.VectorDistance, name: :"#{name}_vector_distance"},
+              {AshAi.Calculations.VectorSimilarity, name: name},
               public?: true,
+              constraints: [max: 1.0, min: 0.0],
               arguments: [
                 build_calculation_argument(:query, :string, allow_nil?: false),
                 build_calculation_argument(:distance_algorithm, :atom,

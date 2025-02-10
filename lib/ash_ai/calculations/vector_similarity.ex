@@ -1,4 +1,4 @@
-defmodule AshAi.Calculations.VectorDistance do
+defmodule AshAi.Calculations.VectorSimilarity do
   use Ash.Resource.Calculation
 
   def expression(opts, context) do
@@ -15,10 +15,10 @@ defmodule AshAi.Calculations.VectorDistance do
 
     case context.arguments[:distance_algorithm] do
       :l2 ->
-        expr(vector_l2_distance(^ref(opts[:name]), ^query_vec))
+        expr(1 - vector_l2_distance(^ref(opts[:name]), ^query_vec))
 
       :cosine ->
-        expr(vector_cosine_distance(^ref(opts[:name]), ^query_vec))
+        expr(1 - vector_cosine_distance(^ref(opts[:name]), ^query_vec))
     end
   end
 end
