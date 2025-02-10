@@ -3,6 +3,8 @@ defmodule AshAi do
   Documentation for `AshAi`.
   """
 
+  defstruct []
+
   @ai_agent %Spark.Dsl.Section{
     name: :ai_agent,
     schema: [
@@ -14,7 +16,52 @@ defmodule AshAi do
     ]
   }
 
-  use Spark.Dsl.Extension, sections: [@ai_agent]
+  @full_text %Spark.Dsl.Section{
+    name: :full_text,
+    imports: [Ash.Expr],
+    schema: [
+      name: [
+        type: :atom,
+        default: :full_text_vector,
+        doc: "The name of the attribute to store the text vector in"
+      ],
+      used_attributes: [
+        type: {:list, :atom},
+        doc: "If set, a vector is only regenerated when these attributes are changed"
+      ],
+      text: [
+        type: {:fun, 1},
+        required: true,
+        doc:
+          "A function or expr that takes a list of records and computes a full text string that will be vectorized. If given an expr, use `atomic_ref` to refer to new values, as this is set as an atomic update."
+      ]
+    ]
+  }
+
+  @vectorize %Spark.Dsl.Section{
+    name: :vectorize,
+    sections: [
+      @full_text
+    ],
+    schema: [
+      attributes: [
+        type: :keyword_list,
+        doc:
+          "A keyword list of attributes to vectorize, and the name of the attribute to store the vector in",
+        default: []
+      ],
+      strategy: [
+        type: {:one_of, [:after_action]},
+        default: :after_action,
+        doc:
+          "How to compute the vector. Only `after_action` is supported, but eventually `ash_oban` will be supported as well"
+      ]
+    ]
+  }
+
+  use Spark.Dsl.Extension,
+    sections: [@ai_agent, @vectorize],
+    transformers: [AshAi.Transformers.Vectorize]
 
   defimpl Jason.Encoder, for: OpenApiSpex.Schema do
     def encode(value, opts) do
@@ -142,7 +189,7 @@ defmodule AshAi do
       else
         if opts.actor do
           """
-          Your job is to operate the application on behalf of the following actor:
+          Your job is to operate the a
 
           #{inspect(opts.actor)}
 
@@ -164,8 +211,18 @@ defmodule AshAi do
           OpenaiEx.ChatMessage.user(prompt)
         ]
 
+    top_loop(openai, messages, opts)
+  end
+
+  defp top_loop(openai, messages, opts) do
     case functions(openai, messages, opts) do
-      {message_res, message, messages} when message_res in [:complete, :message] ->
+      {:complete, message, messages} ->
+        {:ok, message, messages}
+
+      {:message, nil, messages} ->
+        top_loop(openai, messages, opts)
+
+      {:message, message, messages} ->
         {:ok, message, messages}
 
       {:functions, [%{function: %{name: "complete"}}]} ->
@@ -456,15 +513,23 @@ defmodule AshAi do
         end)
         |> Enum.join("\n\n")
 
-      functions = [select_action(Map.keys(actions_map)), @complete]
+      functions = [
+        select_action(Map.keys(actions_map)),
+        ask_about_action(Map.keys(actions_map)),
+        @complete
+      ]
 
       prompt =
         """
-        Select from the following actions to take, or call the complete function if there is nothing left or nothing appropriate to do.
+        Do one of:
 
-        Read actions support being filtered further on input
-
-        Feel free to ask the user clarifying questions before selecting an action if necessary.
+        - Ask the system for more information on one of the below actions. 
+          Especially useful for read actions to see what kind of filters, 
+          sorts and loads are at your disposal.
+          (`ask_about_action` tool call)
+        - Select from the below actions to take (`select_action` tool call)
+        - call the complete function if there is nothing left or appropriate to do.
+        - respond to the user to do things like ask clarifying questions, using no tools
 
         #{action_options}
         """
@@ -505,6 +570,37 @@ defmodule AshAi do
 
         %{
           "id" => id,
+          "function" => %{"name" => "ask_about_action", "arguments" => arguments}
+        },
+        {content, messages, done?, action} ->
+          arguments = Jason.decode!(arguments)
+
+          case Map.fetch(actions_map, arguments["action"]) do
+            {:ok, {domain, resource, found_action}} ->
+              {content,
+               messages ++
+                 [
+                   tool_call_result(
+                     """
+                     schema for action: #{arguments["action"]}:
+
+                     #{Jason.encode!(function(domain, resource, found_action))}
+                     """,
+                     id,
+                     "ask_about_action"
+                   )
+                 ], done?, action}
+
+            :error ->
+              text = "No such action: #{arguments["action"]}"
+
+              {add_to_content(content, text),
+               messages ++
+                 [tool_call_result(text, id, "ask_about_action")], done?, action}
+          end
+
+        %{
+          "id" => id,
           "function" => %{"name" => "select_action", "arguments" => arguments}
         },
         {content, messages, done?, action} ->
@@ -518,7 +614,7 @@ defmodule AshAi do
                    tool_call_result(
                      "action selected: #{arguments["action"]}: #{arguments["reason"]}",
                      id,
-                     "complete"
+                     "select_action"
                    )
                  ], done?, action}
 
@@ -526,7 +622,7 @@ defmodule AshAi do
               if action do
                 {content,
                  messages ++
-                   [tool_call_result("", id, "complete")], done?, action}
+                   [tool_call_result("", id, "select_action")], done?, action}
               else
                 text = "No appropriate action could be found to take to fulfill request."
 
@@ -580,6 +676,26 @@ defmodule AshAi do
             reason: %{
               type: :string,
               description: "The reason you wish to take this action"
+            }
+          }
+        }
+      }
+    }
+  end
+
+  defp ask_about_action(options) do
+    %{
+      type: :function,
+      function: %{
+        name: "ask_about_action",
+        description: "Call this to see the full schema for a given action.",
+        parameters: %{
+          type: :object,
+          properties: %{
+            action: %{
+              type: :string,
+              description: "The action you wish to ask about",
+              enum: options
             }
           }
         }
@@ -664,7 +780,7 @@ defmodule AshAi do
         # i.e first decide to query, and then provide it with a function to call
         # that has all the options Then the filter object can be big & expressive.
         properties:
-          Ash.Resource.Info.fields(resource, [:attributes])
+          Ash.Resource.Info.fields(resource, [:attributes, :calculations])
           |> Enum.filter(& &1.public?)
           |> Enum.map(fn field ->
             {field.name, AshJsonApi.OpenApi.raw_filter_type(field, resource)}
