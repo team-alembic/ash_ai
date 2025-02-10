@@ -12,6 +12,14 @@ The bot may very well do things you "don't want it to do", but it cannot perform
 any kind of privelege escalation because it always operates by calling actions on
 resources, never by accessing data directly.
 
+## Current status:
+
+Experimenting with adding vectorized fields and trying to get agents to use them.
+The filter schema is quite complex and the gpt4o doesn't seem to be able to
+figure out how to use them (i.e provide input and a predicate like `eq`).
+It may not be the best approach compared to advising users to add search
+actions that use vectors and foregoing the complex filter schema.
+
 ## What goes into making this ready?
 
 1. Must be made agnostic to provider.
