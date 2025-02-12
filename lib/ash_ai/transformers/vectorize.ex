@@ -7,15 +7,24 @@ defmodule AshAi.Transformers.Vectorize do
   def after?(_), do: true
 
   def transform(dsl) do
-    if Ash.Resource.Info.data_layer(dsl) != AshPostgres.DataLayer do
-      raise "AshAi only currently supports AshPostgres"
-    end
+    attrs =
+      dsl
+      |> AshAi.Info.vectorize_attributes!()
 
-    dsl
-    |> AshAi.Info.vectorize_attributes!()
-    |> Enum.reduce({:ok, dsl}, &vectorize_attribute(&2, &1))
-    |> full_text_vector()
-    |> update_vectors_action()
+    uses_full_text = match?({:ok, _}, AshAi.Info.vectorize_full_text_text(dsl))
+
+    if Enum.empty?(attrs) && !uses_full_text do
+      {:ok, dsl}
+    else
+      if Ash.Resource.Info.data_layer(dsl) != AshPostgres.DataLayer do
+        raise "AshAi vectorization only currently supports AshPostgres"
+      end
+
+      attrs
+      |> Enum.reduce({:ok, dsl}, &vectorize_attribute(&2, &1))
+      |> full_text_vector()
+      |> update_vectors_action()
+    end
   end
 
   defbuilder update_vectors_action(dsl_state) do
