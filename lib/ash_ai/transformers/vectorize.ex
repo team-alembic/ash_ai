@@ -20,11 +20,52 @@ defmodule AshAi.Transformers.Vectorize do
         raise "AshAi vectorization only currently supports AshPostgres"
       end
 
+      if Ash.Resource.Info.field(dsl, :full_text) do
+        raise "AshAi vectorization currently does not work if there is a field called full_text"
+      end
+
       attrs
       |> Enum.reduce({:ok, dsl}, &vectorize_attribute(&2, &1))
       |> full_text_vector()
       |> update_vectors_action()
+      |> add_vector_search_action()
     end
+  end
+
+  defbuilder add_vector_search_action(dsl_state) do
+    attrs =
+      dsl_state
+      |> AshAi.Info.vectorize_attributes!()
+
+    {attrs, default} =
+      case AshAi.Info.vectorize_full_text_text(dsl_state) do
+        {:ok, _text} ->
+          default = [full_text: AshAi.Info.vectorize_full_text_name!(dsl_state)]
+          {attrs ++ default, [:full_text]}
+
+        _ ->
+          {attrs, Keyword.keys(attrs)}
+      end
+
+    case attrs do
+      [] -> {:ok, dsl_state}
+      attrs -> do_add_vector_search_action(dsl_state, attrs, default)
+    end
+  end
+
+  defbuilder do_add_vector_search_action(dsl_state, attrs, default) do
+    Ash.Resource.Builder.add_new_action(dsl_state, :read, :vector_search,
+      arguments: [
+        build_action_argument(:query, :string, allow_nil?: false),
+        build_action_argument(:targets, {:array, :atom},
+          constraints: [items: [one_of: Keyword.keys(attrs)]],
+          default: default
+        )
+      ],
+      preparations: [
+        build_preparation({AshAi.Preparations.VectorSearch, available_targets: attrs})
+      ]
+    )
   end
 
   defbuilder update_vectors_action(dsl_state) do
@@ -61,28 +102,11 @@ defmodule AshAi.Transformers.Vectorize do
     end
   end
 
-  defbuilder vectorize_attribute(dsl_state, {source, dest}) do
+  defbuilder vectorize_attribute(dsl_state, {_source, dest}) do
     dsl_state
     |> add_new_attribute(dest, :vector,
       constraints: [dimensions: 3072],
       select_by_default?: false
-    )
-    |> add_new_calculation(
-      :"#{source}_vector_similarity",
-      :float,
-      {AshAi.Calculations.VectorSimilarity, name: dest},
-      public?: true,
-      constraints: [max: 1.0, min: 0.0],
-      arguments: [
-        build_calculation_argument(:query, :string, allow_nil?: false),
-        build_calculation_argument(:distance_algorithm, :atom,
-          allow_nil?: false,
-          default: :l2,
-          constraints: [
-            one_of: [:l2, :cosine]
-          ]
-        )
-      ]
     )
   end
 
@@ -97,22 +121,6 @@ defmodule AshAi.Transformers.Vectorize do
             |> add_new_attribute(name, :vector,
               constraints: [dimensions: 3072],
               select_by_default?: false
-            )
-            |> add_new_calculation(
-              :full_text_vector_similarity,
-              :float,
-              {AshAi.Calculations.VectorSimilarity, name: name},
-              public?: true,
-              constraints: [max: 1.0, min: 0.0],
-              arguments: [
-                build_calculation_argument(:query, :string, allow_nil?: false),
-                build_calculation_argument(:distance_algorithm, :atom,
-                  allow_nil?: false,
-                  constraints: [
-                    one_of: [:l2, :cosine]
-                  ]
-                )
-              ]
             )
 
           _ ->

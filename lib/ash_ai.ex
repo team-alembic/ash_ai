@@ -195,11 +195,17 @@ defmodule AshAi do
 
           Do not make assumptions about what they can or cannot do. All actions are secure,
           and will forbid any unauthorized actions.
+
+          When searching for similarity, prefer vector searching before other methods of searching,
+          and prefer full text if that makes sense.
           """
         else
           """
           Do not make assumptions about what you can or cannot do. All actions are secure,
           and will forbid any unauthorized actions.
+
+          When searching for similarity, prefer vector searching before other methods of searching,
+          and prefer full text if that makes sense.
           """
         end
       end
@@ -215,6 +221,8 @@ defmodule AshAi do
   end
 
   defp top_loop(openai, messages, opts) do
+    IO.inspect(messages)
+
     case functions(openai, messages, opts) do
       {:complete, message, messages} ->
         {:ok, message, messages}
@@ -240,7 +248,7 @@ defmodule AshAi do
 
         openai
         |> OpenaiEx.Chat.Completions.create!(fn_req)
-        |> call_until_complete(opts.actor, openai, functions, messages, content)
+        |> call_until_complete(openai, messages, content, opts)
     end
   end
 
@@ -265,11 +273,10 @@ defmodule AshAi do
              | _
            ]
          },
-         _actor,
          _openai,
-         _functions,
          messages,
-         content
+         content,
+         _opts
        ) do
     arguments = Jason.decode!(arguments)
 
@@ -283,16 +290,21 @@ defmodule AshAi do
              %{"finish_reason" => "stop", "message" => %{"content" => content} = message}
            ]
          },
-         _actor,
          _openai,
-         _functions,
          messages,
-         new_content
+         new_content,
+         _opts
        ) do
     {:ok, add_to_content(content, new_content), messages ++ [message]}
   end
 
-  defp call_until_complete(%{"choices" => choices}, actor, openai, functions, messages, content) do
+  defp call_until_complete(
+         %{"choices" => choices},
+         openai,
+         messages,
+         content,
+         opts
+       ) do
     choice = Enum.at(choices, 0)["message"]
 
     if Enum.empty?(choice["tool_calls"] || []) do
@@ -305,140 +317,165 @@ defmodule AshAi do
           [message, tool_call_result("", id, "complete")]
 
         %{"function" => %{"name" => name, "arguments" => arguments}, "id" => id} ->
-          try do
-            arguments = Jason.decode!(arguments)
-            IO.inspect(name)
-            IO.inspect(arguments)
-
-            [domain, resource, action] = String.split(name, "-")
-
-            domain = Module.concat([String.replace(domain, "_", ".")])
-            resource = Module.concat([String.replace(resource, "_", ".")])
-
-            action =
-              Ash.Resource.Info.actions(resource)
-              |> Enum.find(fn action_struct ->
-                to_string(action_struct.name) == action
-              end)
-
-            # make this JSON!
-            case action.type do
-              :read ->
-                sort =
-                  case arguments["sort"] do
-                    sort when is_list(sort) ->
-                      Enum.map(sort, fn map ->
-                        case map["direction"] || "asc" do
-                          "asc" -> map["field"]
-                          "desc" -> "-#{map["field"]}"
-                        end
-                      end)
-
-                    nil ->
-                      []
-                  end
-                  |> Enum.join(",")
-
-                resource
-                |> Ash.Query.limit(arguments["limit"] || 100)
-                |> Ash.Query.offset(arguments["offset"])
-                |> Ash.Query.load(arguments["load"])
-                |> then(fn query ->
-                  if sort != "" do
-                    Ash.Query.sort_input(query, sort)
-                  else
-                    query
-                  end
-                end)
-                |> then(fn query ->
-                  if Map.has_key?(arguments, "filter") do
-                    Ash.Query.filter_input(query, arguments["filter"])
-                  else
-                    query
-                  end
-                end)
-                |> Ash.Query.for_read(action.name, arguments["input"] || %{},
-                  domain: domain,
-                  actor: actor
-                )
-                |> Ash.read!()
-                |> inspect(limit: :infinity)
-                |> tool_call_result(id, name)
-                |> List.wrap()
-
-              :update ->
-                pkey =
-                  Map.new(Ash.Resource.Info.primary_key(resource), fn key ->
-                    {key, arguments[to_string(key)]}
-                  end)
-
-                resource
-                |> Ash.get!(pkey)
-                |> Ash.Changeset.for_update(action.name, arguments["input"],
-                  domain: domain,
-                  actor: actor
-                )
-                |> Ash.update!()
-                |> inspect(limit: :infinity)
-                |> tool_call_result(id, name)
-                |> List.wrap()
-
-              :destroy ->
-                pkey =
-                  Map.new(Ash.Resource.Info.primary_key(resource), fn key ->
-                    {key, arguments[to_string(key)]}
-                  end)
-
-                resource
-                |> Ash.get!(pkey)
-                |> Ash.Changeset.for_destroy(action.name, arguments["input"],
-                  domain: domain,
-                  actor: actor
-                )
-                |> Ash.destroy!()
-                |> inspect(limit: :infinity)
-                |> tool_call_result(id, name)
-
-              :create ->
-                resource
-                |> Ash.Changeset.for_create(action.name, arguments["input"],
-                  domain: domain,
-                  actor: actor
-                )
-                |> Ash.create!()
-                |> inspect(limit: :infinity)
-                |> tool_call_result(id, name)
-                |> List.wrap()
-            end
-          rescue
-            e ->
-              Exception.format(:error, e, __STACKTRACE__)
-              |> tap(&IO.puts(&1))
-              |> inspect()
-              |> tool_call_result(id, name)
-              |> List.wrap()
-          end
+          call_action(name, arguments, opts, id, name)
       end)
 
     messages = messages ++ [choice | tool_call_results]
 
     case Enum.find(choice["tool_calls"] || [], &(&1["function"]["name"] == "complete")) do
       nil ->
-        fn_req =
-          OpenaiEx.Chat.Completions.new(
-            model: "gpt-4o-mini",
-            messages: messages,
-            tools: functions,
-            tool_choice: "auto"
-          )
-
-        openai
-        |> OpenaiEx.Chat.Completions.create!(fn_req)
-        |> call_until_complete(actor, openai, functions, messages, content)
+        top_loop(openai, messages, opts)
 
       _ ->
         {:ok, content, messages}
     end
+  end
+
+  defp call_action(name, arguments, opts, id, name) do
+    actor = opts.actor
+
+    try do
+      arguments = Jason.decode!(arguments)
+
+      [domain, resource, action] = String.split(name, "-") |> IO.inspect()
+
+      domain = Module.concat([String.replace(domain, "_", ".")])
+      resource = Module.concat([String.replace(resource, "_", ".")])
+
+      action =
+        Ash.Resource.Info.actions(resource)
+        |> Enum.find(fn action_struct ->
+          to_string(action_struct.name) == action
+        end)
+
+      # make this JSON!
+      case action.type do
+        :read ->
+          sort =
+            case arguments["sort"] do
+              sort when is_list(sort) ->
+                Enum.map(sort, fn map ->
+                  case map["direction"] || "asc" do
+                    "asc" -> map["field"]
+                    "desc" -> "-#{map["field"]}"
+                  end
+                end)
+
+              nil ->
+                []
+            end
+            |> Enum.join(",")
+
+          resource
+          |> Ash.Query.limit(arguments["limit"] || 100)
+          |> Ash.Query.offset(arguments["offset"])
+          |> then(fn query ->
+            if sort != "" do
+              Ash.Query.sort_input(query, sort)
+            else
+              query
+            end
+          end)
+          |> then(fn query ->
+            if Map.has_key?(arguments, "filter") do
+              Ash.Query.filter_input(query, arguments["filter"])
+            else
+              query
+            end
+          end)
+          |> Ash.Query.for_read(action.name, arguments["input"] || %{},
+            domain: domain,
+            actor: actor
+          )
+          |> Ash.Actions.Read.unpaginated_read(action)
+          |> case do
+            {:ok, value} ->
+              value
+
+            {:error, error} ->
+              raise Ash.Error.to_error_class(error)
+          end
+          |> AshJsonApi.Serializer.serialize_value({:array, resource}, [], domain)
+          |> Jason.encode!()
+          |> tool_call_result(id, name)
+          |> List.wrap()
+
+        :update ->
+          pkey =
+            Map.new(Ash.Resource.Info.primary_key(resource), fn key ->
+              {key, arguments[to_string(key)]}
+            end)
+
+          resource
+          |> Ash.get!(pkey)
+          |> Ash.Changeset.for_update(action.name, arguments["input"],
+            domain: domain,
+            actor: actor
+          )
+          |> Ash.update!()
+          |> AshJsonApi.Serializer.serialize_value(resource, [], domain)
+          |> Jason.encode!()
+          |> tool_call_result(id, name)
+          |> List.wrap()
+
+        :destroy ->
+          pkey =
+            Map.new(Ash.Resource.Info.primary_key(resource), fn key ->
+              {key, arguments[to_string(key)]}
+            end)
+
+          resource
+          |> Ash.get!(pkey)
+          |> Ash.Changeset.for_destroy(action.name, arguments["input"],
+            domain: domain,
+            actor: actor
+          )
+          |> AshJsonApi.Serializer.serialize_value(resource, [], domain)
+          |> Jason.encode!()
+          |> tool_call_result(id, name)
+
+        :create ->
+          resource
+          |> Ash.Changeset.for_create(action.name, arguments["input"],
+            domain: domain,
+            actor: actor
+          )
+          |> Ash.create!()
+          |> AshJsonApi.Serializer.serialize_value(resource, [], domain)
+          |> Jason.encode!()
+          |> tool_call_result(id, name)
+          |> List.wrap()
+
+        :action ->
+          resource
+          |> Ash.ActionInput.for_action(action.name, arguments["input"],
+            domain: domain,
+            actor: actor
+          )
+          |> Ash.run_action!()
+          |> then(fn result ->
+            if action.returns do
+              result
+              |> AshJsonApi.Serializer.serialize_value(action.returns, [], domain)
+              |> Jason.encode!()
+              |> tool_call_result(id, name)
+              |> List.wrap()
+            else
+              :ok
+            end
+          end)
+      end
+    rescue
+      e ->
+        IO.inspect(e)
+
+        Exception.format(:error, e, __STACKTRACE__)
+        |> tap(&IO.puts(&1))
+        |> inspect()
+        |> tool_call_result(id, name)
+        |> List.wrap()
+    end
+    |> IO.inspect()
   end
 
   defp tool_call_result(result, id, name) do
@@ -466,11 +503,14 @@ defmodule AshAi do
     }
   }
 
-  defp pick_action(actions, openai, messages) do
+  defp pick_action(actions, openai, messages, opts) do
     if Enum.count_until(actions, @function_limit) == @function_limit do
       actions_map =
         Map.new(actions, fn {domain, resource, action} ->
-          {"#{inspect(domain)}.#{inspect(resource)}.#{action.name}", {domain, resource, action}}
+          name =
+            "#{String.replace(inspect(domain), ".", "_")}-#{String.replace(inspect(resource), ".", "_")}-#{action.name}"
+
+          {name, {domain, resource, action}}
         end)
 
       action_options =
@@ -499,7 +539,19 @@ defmodule AshAi do
                     end)
                     |> Enum.join(", ")
 
-                  "- #{key}(#{inputs}) | #{action.type} | #{description}"
+                  return =
+                    case action.type do
+                      :action ->
+                        action.returns || :ok
+
+                      :read ->
+                        "#{inspect(resource)}[]"
+
+                      _ ->
+                        inspect(resource)
+                    end
+
+                  "- `#{action.type}`: #{key}(#{inputs}) :: #{return} | #{description}"
                 end)
                 |> Enum.join("\n")
 
@@ -528,8 +580,8 @@ defmodule AshAi do
         Do one of:
 
         - Ask the system for more information on one of the below actions. 
-          Especially useful for read actions to see what kind of filters, 
-          sorts and loads are at your disposal. Do not ask the user for permission
+          Especially useful for read actions to see what kind of filters,
+          sorts and other options are at your disposal. Do not ask the user for permission
           to do this, just do it if you want to. (`ask_about_action` tool call)
 
         - Select from the below actions to take. Remember: ALL FILTERED FIELDS
@@ -538,12 +590,6 @@ defmodule AshAi do
           
         - call the complete function if there is nothing left or appropriate to do.
         - respond to the user to do things like ask clarifying questions, using no tools
-
-        Remember that read actions support rich filters and sorts. Instead of 
-        When a user asks to search, prefer sorting by vector similarity and limiting over
-        filtering by vector similarity.
-        ask about potentially relevant actions to see if they have filters that can be used
-        to fulfill the search. You should favor vector similarity filters wherever possible.
 
         #{action_options}
         """
@@ -667,6 +713,23 @@ defmodule AshAi do
                    [tool_call_result(text, id, "complete")], done?, action}
               end
           end
+
+        %{
+          "id" => id,
+          "function" => %{"name" => name, "arguments" => arguments}
+        },
+        {content, messages, done?, action} ->
+          case Map.fetch(actions_map, arguments["action"]) do
+            {:ok, {domain, resource, action}} ->
+              call_action(name, arguments, opts, id, name)
+
+            _ ->
+              text = "Not an available action in this context"
+
+              {add_to_content(content, text),
+               messages ++
+                 [tool_call_result(text, id, "complete")], done?, action}
+          end
       end)
       |> case do
         {content, messages, _, action} when not is_nil(action) ->
@@ -747,7 +810,7 @@ defmodule AshAi do
   def functions(openai, messages, opts) do
     opts
     |> actions()
-    |> pick_action(openai, messages)
+    |> pick_action(openai, messages, opts)
     |> case do
       {:message, message, messages} ->
         {:message, message, messages}
@@ -812,8 +875,7 @@ defmodule AshAi do
     Map.merge(properties, %{
       filter: %{
         type: :object,
-        description:
-          "Filter results. Remember, *AT LEAST ONE COMPARISON PREDICATE FOR FIELDS IS REQUIRED* like `eq` or `greater_than`.",
+        description: "Filter results",
         # querying is complex, will likely need to be a two step process
         # i.e first decide to query, and then provide it with a function to call
         # that has all the options Then the filter object can be big & expressive.
@@ -826,21 +888,6 @@ defmodule AshAi do
           |> Enum.into(%{})
           |> Jason.encode!()
           |> Jason.decode!()
-          |> IO.inspect()
-      },
-      load: %{
-        type: :array,
-        items: %{
-          type: :string,
-          enum:
-            Ash.Resource.Info.fields(resource, [
-              :relationships,
-              :calculations,
-              :aggregates
-            ])
-            |> Enum.filter(& &1.public?)
-            |> Enum.map(& &1.name)
-        }
       },
       limit: %{
         type: :integer,
