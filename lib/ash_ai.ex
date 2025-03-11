@@ -221,8 +221,6 @@ defmodule AshAi do
   end
 
   defp top_loop(openai, messages, opts) do
-    IO.inspect(messages)
-
     case functions(openai, messages, opts) do
       {:complete, message, messages} ->
         {:ok, message, messages}
@@ -337,7 +335,7 @@ defmodule AshAi do
     try do
       arguments = Jason.decode!(arguments)
 
-      [domain, resource, action] = String.split(name, "-") |> IO.inspect()
+      [domain, resource, action] = String.split(name, "-")
 
       domain = Module.concat([String.replace(domain, "_", ".")])
       resource = Module.concat([String.replace(resource, "_", ".")])
@@ -467,15 +465,11 @@ defmodule AshAi do
       end
     rescue
       e ->
-        IO.inspect(e)
-
         Exception.format(:error, e, __STACKTRACE__)
-        |> tap(&IO.puts(&1))
         |> inspect()
         |> tool_call_result(id, name)
         |> List.wrap()
     end
-    |> IO.inspect()
   end
 
   defp tool_call_result(result, id, name) do
@@ -720,7 +714,7 @@ defmodule AshAi do
         },
         {content, messages, done?, action} ->
           case Map.fetch(actions_map, arguments["action"]) do
-            {:ok, {domain, resource, action}} ->
+            {:ok, {_domain, _resource, _action}} ->
               call_action(name, arguments, opts, id, name)
 
             _ ->
@@ -1037,7 +1031,6 @@ defmodule AshAi do
           true
         end
       end)
-      |> Enum.take(32)
     end
   end
 

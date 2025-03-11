@@ -10,4 +10,8 @@ defmodule AshAi.Validations.ActorIsAshAi do
   def validate(_, _, _) do
     {:error, "actor must be Ash AI"}
   end
+
+  def atomic(changeset, opts, context) do
+    validate(changeset, opts, context)
+  end
 end

@@ -18,20 +18,24 @@ defmodule AshAi.Changes.VectorizeAfterAction do
             # TODO: get all vectors in one request? or Task.async_stream
             |> Enum.reduce(%{}, fn
               {source, dest}, acc ->
-                text = Map.get(result, source)
+                if Ash.Changeset.changing_attribute?(changeset, source) do
+                  text = Map.get(result, source)
 
-                embedding_req =
-                  OpenaiEx.Embeddings.new(%{
-                    input: text,
-                    model: "text-embedding-3-large"
-                  })
+                  embedding_req =
+                    OpenaiEx.Embeddings.new(%{
+                      input: text,
+                      model: "text-embedding-3-large"
+                    })
 
-                embedding =
-                  OpenaiEx.Embeddings.create!(openai, embedding_req)["data"]
-                  |> Enum.at(0)
-                  |> Map.get("embedding")
+                  embedding =
+                    OpenaiEx.Embeddings.create!(openai, embedding_req)["data"]
+                    |> Enum.at(0)
+                    |> Map.get("embedding")
 
-                Map.put(acc, dest, embedding)
+                  Map.put(acc, dest, embedding)
+                else
+                  acc
+                end
 
               {:full_text, name, used_attrs, fun}, acc ->
                 if is_nil(used_attrs) ||
