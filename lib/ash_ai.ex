@@ -641,7 +641,7 @@ defmodule AshAi do
         {content, messages, _done?, action} ->
           arguments = Jason.decode!(arguments)
 
-          {add_to_content(content, arguments["reason"]),
+          {add_to_content(content, arguments["message"]),
            messages ++ [tool_call_result("", id, "complete")], true, action}
 
         %{
