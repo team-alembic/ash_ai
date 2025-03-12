@@ -61,6 +61,7 @@ defmodule AshAi do
 
   use Spark.Dsl.Extension,
     sections: [@ai_agent, @vectorize],
+    imports: [AshAi.Actions],
     transformers: [AshAi.Transformers.Vectorize]
 
   defimpl Jason.Encoder, for: OpenApiSpex.Schema do
@@ -107,6 +108,17 @@ defmodule AshAi do
       ]
   end
 
+  def functions(opts) do
+    opts
+    |> actions()
+    |> Enum.map(fn {domain, resource, action} ->
+      function(domain, resource, action)
+    end)
+  end
+
+  def ask_about_actions_function(otp_app_or_actions) do
+  end
+
   @doc """
   Chat with the AI in IEx.
 
@@ -122,54 +134,82 @@ defmodule AshAi do
 
     opts = Options.validate!(opts)
 
-    if is_nil(prompt) do
-      IO.puts("Hello!")
+    system =
+      if opts.system_prompt do
+        opts.system_prompt.(opts)
+      else
+        if opts.actor do
+          """
+          Your job is to operate the a
 
-      case String.trim(Mix.shell().prompt("❯ ")) do
-        "" ->
-          iex_chat("", opts)
+          #{inspect(opts.actor)}
 
-        quit when quit in ["quit", "exit", "stop", "n"] ->
-          :done
+          Do not make assumptions about what they can or cannot do. All actions are secure,
+          and will forbid any unauthorized actions.
 
-        message ->
-          instruct(message, opts)
-      end
-    else
-      case instruct(prompt, opts) do
-        {:ok, response, messages} ->
-          IO.puts(String.trim(response))
+          When searching for similarity, prefer vector searching before other methods of searching,
+          and prefer full text if that makes sense.
+          """
+        else
+          """
+          Do not make assumptions about what you can or cannot do. All actions are secure,
+          and will forbid any unauthorized actions.
 
-          case String.trim(Mix.shell().prompt("❯ ")) do
-            "" ->
-              iex_chat("", %{opts | messages: messages})
-
-            quit when quit in ["quit", "exit", "stop", "n"] ->
-              :done
-
-            message ->
-              instruct(message, %{opts | messages: messages})
-          end
-      end
-    end
-    |> case do
-      :done ->
-        :done
-
-      {:ok, last_message, messages} ->
-        IO.puts(String.trim(last_message || ""))
-
-        case String.trim(Mix.shell().prompt("❯ ")) do
-          quit when quit in ["quit", "exit", "stop", "n"] ->
-            :done
-
-          message ->
-            iex_chat(
-              message,
-              %{opts | messages: messages ++ [OpenaiEx.ChatMessage.user(last_message)]}
-            )
+          When searching for similarity, prefer vector searching before other methods of searching,
+          and prefer full text if that makes sense.
+          """
         end
-    end
+      end
+
+    #
+    # if is_nil(prompt) do
+    #   IO.puts("Hello!")
+    #
+    #   case String.trim(Mix.shell().prompt("❯ ")) do
+    #     "" ->
+    #       iex_chat("", opts)
+    #
+    #     quit when quit in ["quit", "exit", "stop", "n"] ->
+    #       :done
+    #
+    #     message ->
+    #       instruct(message, opts)
+    #   end
+    # else
+    #   case instruct(prompt, opts) do
+    #     {:ok, response, messages} ->
+    #       IO.puts(String.trim(response))
+    #
+    #       case String.trim(Mix.shell().prompt("❯ ")) do
+    #         "" ->
+    #           iex_chat("", %{opts | messages: messages})
+    #
+    #         quit when quit in ["quit", "exit", "stop", "n"] ->
+    #           :done
+    #
+    #         message ->
+    #           instruct(message, %{opts | messages: messages})
+    #       end
+    #   end
+    # end
+    # |> case do
+    #   :done ->
+    #     :done
+    #
+    #   {:ok, last_message, messages} ->
+    #     IO.puts(String.trim(last_message || ""))
+    #
+    #     case String.trim(Mix.shell().prompt("❯ ")) do
+    #       quit when quit in ["quit", "exit", "stop", "n"] ->
+    #         :done
+    #
+    #       message ->
+    #         iex_chat(
+    #           message,
+    #           %{opts | messages: messages ++ [OpenaiEx.ChatMessage.user(last_message)]}
+    #         )
+    #     end
+    # end
   end
 
   def instruct!(prompt, opts \\ []) do
@@ -824,30 +864,32 @@ defmodule AshAi do
     end
   end
 
-  defp function(domain, resource, action) do
-    inputs =
-      AshJsonApi.OpenApi.write_attributes(
-        resource,
-        action.arguments,
-        action,
-        %{type: :action, route: "/"},
-        :json
-      )
-      |> then(fn attrs ->
-        %{
-          type: :object,
-          properties:
-            %{
-              input: %{
-                type: :object,
-                properties: attrs
-              }
+  defp parameter_schema(domain, resource, action) do
+    AshJsonApi.OpenApi.write_attributes(
+      resource,
+      action.arguments,
+      action,
+      %{type: :action, route: "/"},
+      :json
+    )
+    |> then(fn attrs ->
+      %{
+        type: :object,
+        properties:
+          %{
+            input: %{
+              type: :object,
+              properties: attrs
             }
-            |> add_action_specific_properties(resource, action)
-        }
-      end)
-      |> Jason.encode!()
+          }
+          |> add_action_specific_properties(resource, action)
+      }
+    end)
+    |> Jason.encode!()
+    |> Jason.decode!()
+  end
 
+  defp function(domain, resource, action) do
     name =
       "#{String.replace(inspect(domain), ".", "_")}-#{String.replace(inspect(resource), ".", "_")}-#{action.name}"
 
@@ -855,14 +897,148 @@ defmodule AshAi do
       action.description ||
         "Call the #{action.name} action on the #{inspect(resource)} resource"
 
-    %{
-      type: :function,
-      function: %{
-        name: name,
-        description: description,
-        parameters: inputs |> Jason.decode!()
-      }
-    }
+    LangChain.Function.new!(%{
+      name: name,
+      description: description,
+      parameters_schema: parameter_schema(domain, resource, action),
+      function: fn arguments, context ->
+        actor = context[:actor]
+
+        try do
+          case action.type do
+            :read ->
+              sort =
+                case arguments["sort"] do
+                  sort when is_list(sort) ->
+                    Enum.map(sort, fn map ->
+                      case map["direction"] || "asc" do
+                        "asc" -> map["field"]
+                        "desc" -> "-#{map["field"]}"
+                      end
+                    end)
+
+                  nil ->
+                    []
+                end
+                |> Enum.join(",")
+
+              resource
+              |> Ash.Query.limit(arguments["limit"] || 25)
+              |> Ash.Query.offset(arguments["offset"])
+              |> then(fn query ->
+                if sort != "" do
+                  Ash.Query.sort_input(query, sort)
+                else
+                  query
+                end
+              end)
+              |> then(fn query ->
+                if Map.has_key?(arguments, "filter") do
+                  Ash.Query.filter_input(query, arguments["filter"])
+                else
+                  query
+                end
+              end)
+              |> Ash.Query.for_read(action.name, arguments["input"] || %{},
+                domain: domain,
+                actor: actor
+              )
+              |> Ash.Actions.Read.unpaginated_read(action)
+              |> case do
+                {:ok, value} ->
+                  value
+
+                {:error, error} ->
+                  raise Ash.Error.to_error_class(error)
+              end
+              |> then(fn result ->
+                result
+                |> AshJsonApi.Serializer.serialize_value({:array, resource}, [], domain)
+                |> Jason.encode!()
+                |> then(&{:ok, &1, result})
+              end)
+
+            :update ->
+              pkey =
+                Map.new(Ash.Resource.Info.primary_key(resource), fn key ->
+                  {key, arguments[to_string(key)]}
+                end)
+
+              resource
+              |> Ash.get!(pkey)
+              |> Ash.Changeset.for_update(action.name, arguments["input"],
+                domain: domain,
+                actor: actor
+              )
+              |> Ash.update!()
+              |> then(fn result ->
+                result
+                |> AshJsonApi.Serializer.serialize_value(resource, [], domain)
+                |> Jason.encode!()
+                |> then(&{:ok, &1, result})
+              end)
+
+            :destroy ->
+              pkey =
+                Map.new(Ash.Resource.Info.primary_key(resource), fn key ->
+                  {key, arguments[to_string(key)]}
+                end)
+
+              resource
+              |> Ash.get!(pkey)
+              |> Ash.Changeset.for_destroy(action.name, arguments["input"],
+                domain: domain,
+                actor: actor
+              )
+              |> Ash.destroy!()
+              |> then(fn result ->
+                result
+                |> AshJsonApi.Serializer.serialize_value(resource, [], domain)
+                |> Jason.encode!()
+                |> then(&{:ok, &1, result})
+              end)
+
+            :create ->
+              resource
+              |> Ash.Changeset.for_create(action.name, arguments["input"],
+                domain: domain,
+                actor: actor
+              )
+              |> Ash.create!()
+              |> then(fn result ->
+                result
+                |> AshJsonApi.Serializer.serialize_value(resource, [], domain)
+                |> Jason.encode!()
+                |> then(&{:ok, &1, result})
+              end)
+
+            :action ->
+              resource
+              |> Ash.ActionInput.for_action(action.name, arguments["input"],
+                domain: domain,
+                actor: actor
+              )
+              |> Ash.run_action!()
+              |> then(fn result ->
+                if action.returns do
+                  result
+                  |> AshJsonApi.Serializer.serialize_value(action.returns, [], domain)
+                  |> Jason.encode!()
+                else
+                  "success"
+                end
+                |> then(&{:ok, &1, result})
+              end)
+          end
+        rescue
+          error ->
+            {:error,
+             Jason.encode!(
+               AshJsonApi.Error.to_json_api_errors(domain, resource, error, action.type)
+             )}
+        end
+      end
+    })
   end
 
   defp add_action_specific_properties(properties, resource, %{type: :read}) do
@@ -886,7 +1062,7 @@ defmodule AshAi do
       limit: %{
         type: :integer,
         description: "The maximum number of records to return",
-        default: 100
+        default: 25
       },
       offset: %{
         type: :integer,
@@ -985,26 +1161,27 @@ defmodule AshAi do
 
   def actions(opts) do
     if opts.actions do
-      Enum.flat_map(opts.actions, fn {resource, actions} ->
-        if !Ash.Resource.Info.domain(resource) do
-          raise "Cannot use an ash resource that does not have a domain"
-        end
+      Enum.flat_map(opts.actions, fn
+        {resource, actions} ->
+          if !Ash.Resource.Info.domain(resource) do
+            raise "Cannot use an ash resource that does not have a domain"
+          end
 
-        if actions == :* do
-          Enum.map(Ash.Resource.Info.actions(resource), fn action ->
-            {Ash.Resource.Info.domain(resource), resource, action}
-          end)
-        else
-          Enum.map(List.wrap(actions), fn action ->
-            action_struct = Ash.Resource.Info.action(resource, action)
+          if actions == :* do
+            Enum.map(Ash.Resource.Info.actions(resource), fn action ->
+              {Ash.Resource.Info.domain(resource), resource, action}
+            end)
+          else
+            Enum.map(List.wrap(actions), fn action ->
+              action_struct = Ash.Resource.Info.action(resource, action)
 
-            unless action_struct do
-              raise "Action #{inspect(action)} does not exist on resource #{inspect(resource)}"
-            end
+              unless action_struct do
+                raise "Action #{inspect(action)} does not exist on resource #{inspect(resource)}"
+              end
 
-            {Ash.Resource.Info.domain(resource), resource, action_struct}
-          end)
-        end
+              {Ash.Resource.Info.domain(resource), resource, action_struct}
+            end)
+          end
       end)
     else
       if !opts.otp_app do
