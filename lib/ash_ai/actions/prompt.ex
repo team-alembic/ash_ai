@@ -61,7 +61,10 @@ defmodule AshAi.Actions.Prompt do
               Spark.otp_app(input.resource) ||
               raise "otp_app must be configured on the domain or the resource to get access to all tools"
 
-          AshAi.functions(otp_app: otp_app)
+          AshAi.functions(
+            otp_app: otp_app,
+            exclude_actions: [{input.resource, input.action.name}]
+          )
 
         tools ->
           actions =
@@ -76,7 +79,10 @@ defmodule AshAi.Actions.Prompt do
                 {domain, resource, tool}
             end)
 
-          AshAi.functions(actions: actions)
+          AshAi.functions(
+            actions: actions,
+            exclude_actions: [{input.resource, input.action.name}]
+          )
       end
 
     prompt =
@@ -149,12 +155,21 @@ defmodule AshAi.Actions.Prompt do
     |> Enum.reduce(%{}, fn argument, acc ->
       with {:ok, value} <- Ash.ActionInput.fetch_argument(input, argument.name),
            {:ok, value} <- Ash.Type.dump_to_embedded(argument.type, value, argument.constraints) do
-        Map.put(acc, argument.name, value)
+        """
+        ## #{argument.name}
+        """
+        |> then(fn text ->
+          if argument.description do
+            text <> "\n### Description:\n\n#{argument.description}\n"
+          else
+            text
+          end
+        end)
+        |> Kernel.<>("### Value:\n\n#{Jason.encode!(value)}")
       else
         _ ->
           acc
       end
     end)
-    |> Jason.encode!()
   end
 end
