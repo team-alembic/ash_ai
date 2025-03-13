@@ -45,17 +45,14 @@ action :analyze_sentiment, :atom do
   end
 
   run prompt(
-        LangChain.ChatModels.ChatOpenAI.new!(%{
-          model: "gpt-4o",
-          receive_timeout: :timer.minutes(2)
-        }),
-        # setting `tools: true` allows it to use all exposed tools in your app
-        tools: true 
-        # alternatively you can restrict it to only a set of resources/actions
-        # tools: [{Resource, :action}, {OtherResource, :action}]
-        # provide an optional prompt, which is an EEx template
-        # prompt: "Analyze the sentiment of the following text: <%= @input.arguments.description %>"
-      )
+    LangChain.ChatModels.ChatOpenAI.new!(%{ model: "gpt-4o"}),
+    # setting `tools: true` allows it to use all exposed tools in your app
+    tools: true 
+    # alternatively you can restrict it to only a set of resources/actions
+    # tools: [{Resource, :action}, {OtherResource, :action}]
+    # provide an optional prompt, which is an EEx template
+     # prompt: "Analyze the sentiment of the following text: <%= @input.arguments.description %>"
+  )
 end
 ```
 
