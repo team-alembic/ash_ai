@@ -12,6 +12,36 @@ The bot may very well do things you "don't want it to do", but it cannot perform
 any kind of privelege escalation because it always operates by calling actions on
 resources, never by accessing data directly.
 
+## LangChain
+
+I'm experimenting with Langchain being the basis for this package. Try it out yourself with something like this. 
+
+```elixir
+defmodule MyApp.ChatBot do
+  alias LangChain.Chains.LLMChain
+  alias LangChain.ChatModels.ChatOpenAI
+  alias LangChain.Message
+
+  def iex_chat(actor \\ nil) do
+    %{
+      llm: ChatOpenAI.new!(%{model: "gpt-4o", stream: true),
+      verbose?: true
+    }
+    |> LLMChain.new!()
+    |> AshAi.iex_chat(actor: actor, otp_app: :my_app)
+  end
+end
+
+# and expose actions in your domains
+
+
+agents do
+  expose_resource MyApp.MyDomain.MyResource, [:list, :of, :actions]
+  expose_resource MyApp.MyDomain.MyResource2, [:list, :of, :actions]
+end
+
+```
+
 ## Current status:
 
 Experimenting with adding vectorized fields and trying to get agents to use them.

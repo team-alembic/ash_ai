@@ -2,7 +2,6 @@ defmodule AshAi.Actions.Prompt do
   use Ash.Resource.Actions.Implementation
 
   alias LangChain.Chains.LLMChain
-  alias LangChain.ChatModels.ChatOpenAI
   alias LangChain.Message
 
   def run(input, opts, context) do
@@ -81,13 +80,18 @@ defmodule AshAi.Actions.Prompt do
       end
 
     prompt =
-      opts[:prompt] ||
-        """
-        You are responsible for performing the `#{input.action.name}` action.
+      case Keyword.fetch(opts, :prompt) do
+        {:ok, value} ->
+          EEx.eval_string(value, input: input, context: context)
 
-        #{description(input)}
-        #{inputs(input)}
-        """
+        _ ->
+          """
+          You are responsible for performing the `#{input.action.name}` action.
+
+          #{description(input)}
+          #{inputs(input)}
+          """
+      end
 
     messages = [
       Message.new_system!(prompt),
@@ -136,7 +140,7 @@ defmodule AshAi.Actions.Prompt do
     end
   end
 
-  defp inputs(%{action: %{arguments: []}} = input) do
+  defp inputs(%{action: %{arguments: []}}) do
     ""
   end
 
