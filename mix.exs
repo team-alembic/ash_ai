@@ -23,7 +23,7 @@ defmodule AshAi.MixProject do
   defp deps do
     [
       {:ash, "~> 3.0"},
-      {:ash_json_api, github: "ash-project/ash_json_api"},
+      {:ash_json_api, "~> 1.4 and >= 1.4.20"},
       {:open_api_spex, "~> 3.0"},
       {:langchain, "~> 0.3"},
       {:igniter, "~> 0.5", optional: true}
