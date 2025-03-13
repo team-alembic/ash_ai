@@ -20,7 +20,6 @@ I'm experimenting with Langchain being the basis for this package. Try it out yo
 defmodule MyApp.ChatBot do
   alias LangChain.Chains.LLMChain
   alias LangChain.ChatModels.ChatOpenAI
-  alias LangChain.Message
 
   def iex_chat(actor \\ nil) do
     %{
