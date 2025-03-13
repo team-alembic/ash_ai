@@ -103,9 +103,11 @@ defmodule AshAi.Transformers.Vectorize do
   end
 
   defbuilder vectorize_attribute(dsl_state, {_source, dest}) do
+    embedding_model = AshAi.Info.vectorize_embedding_model!(dsl_state)
+
     dsl_state
     |> add_new_attribute(dest, :vector,
-      constraints: [dimensions: 3072],
+      constraints: [dimensions: embedding_model.dimensions()],
       select_by_default?: false
     )
   end
@@ -113,13 +115,15 @@ defmodule AshAi.Transformers.Vectorize do
   defbuilder full_text_vector(dsl_state) do
     name = AshAi.Info.vectorize_full_text_name!(dsl_state)
 
+    embedding_model = AshAi.Info.vectorize_embedding_model!(dsl_state)
+
     case AshAi.Info.vectorize_full_text_text(dsl_state) do
       {:ok, _fun} ->
         case AshAi.Info.vectorize_strategy!(dsl_state) do
           :after_action ->
             dsl_state
             |> add_new_attribute(name, :vector,
-              constraints: [dimensions: 3072],
+              constraints: [dimensions: embedding_model.dimensions()],
               select_by_default?: false
             )
 

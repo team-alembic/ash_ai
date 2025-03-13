@@ -61,8 +61,6 @@ end
 
 ### Vectorization
 
-Only supports OpenAI, the details are hard coded currently, and requires setting `OPEN_AI_API_KEY`.
-
 This extension creates a vector search action and also rebuilds and stores a vector on all changes.
 This will make your app much slower in its current form. We wille ventually make it work where it triggers an oban
 job to do this work after-the-fact.
@@ -81,6 +79,9 @@ vectorize do
   end
 
   attributes(name: :vectorized_name)
+
+  # See the section below on defining an embedding model
+  embedding_model MyApp.EmbeddingModel
 end
 ```
 
@@ -89,6 +90,53 @@ If you are using policies, add a bypass to allow us to update the vector embeddi
 ```elixir
 bypass AshAi.Checks.ActorIsAshAi do
   authorize_if always()
+end
+```
+
+#### Embedding Models
+
+Embedding models are modules that are in charge of defining what the dimensions
+are of a given vector and how to generate one. This example uses `Req` to
+generate embeddings using `OpenAi`. To use it, you'd need to install `req` 
+(`mix igniter.install req`).
+
+```elixir
+defmodule Tunez.OpenAILargeEmbeddingModel do
+  use AshAi.EmbeddingModel
+
+  @impl true
+  def dimensions, do: 3072
+
+  @impl true
+  def generate(texts) do
+    apikey = System.fetch_env!("OPEN_AI_API_KEY")
+
+    headers = [
+      {"Authorization", "Bearer #{api_key}"},
+      {"Content-Type", "application/json"}
+    ]
+
+    body = %{
+      "input" => texts,
+      "model" => "text-embedding-3-large"
+    }
+
+    response =
+      Req.post!("https://api.openai.com/v1/embeddings",
+        json: body,
+        headers: headers
+      )
+
+    case response.status do
+      200 ->
+        response.body["data"]
+        |> Enum.map(fn %{"embedding" => embedding} -> embedding end)
+        |> then(&{:ok, &1})
+
+      status ->
+        {:error, response.body}
+    end
+  end
 end
 ```
 

@@ -48,6 +48,10 @@ defmodule AshAi do
         default: :after_action,
         doc:
           "How to compute the vector. Only `after_action` is supported, but eventually `ash_oban` will be supported as well"
+      ],
+      embedding_model: [
+        type: {:behaviour, AshAi.EmbeddingModel},
+        required: true
       ]
     ]
   }
