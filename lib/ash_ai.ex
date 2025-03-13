@@ -52,30 +52,31 @@ defmodule AshAi do
     ]
   }
 
-  defmodule ExposedResource do
+  defmodule Tool do
     @moduledoc "An action exposed to LLM agents"
-    defstruct [:resource, actions: []]
+    defstruct [:name, :resource, :action, :domain]
   end
 
-  @expose_resource %Spark.Dsl.Entity{
-    name: :expose_resource,
-    target: ExposedResource,
+  @tool %Spark.Dsl.Entity{
+    name: :tool,
+    target: Tool,
     schema: [
+      name: [type: :atom, required: true],
       resource: [type: {:spark, Ash.Resource}, required: true],
-      actions: [type: {:list, :atom}]
+      action: [type: :atom, required: true]
     ],
-    args: [:resource, :actions]
+    args: [:name, :resource, :action]
   }
 
-  @agents %Spark.Dsl.Section{
-    name: :agents,
+  @tools %Spark.Dsl.Section{
+    name: :tools,
     entities: [
-      @expose_resource
+      @tool
     ]
   }
 
   use Spark.Dsl.Extension,
-    sections: [@agents, @vectorize],
+    sections: [@tools, @vectorize],
     imports: [AshAi.Actions],
     transformers: [AshAi.Transformers.Vectorize]
 
@@ -129,9 +130,9 @@ defmodule AshAi do
 
   def functions(opts) do
     opts
-    |> actions()
-    |> Enum.map(fn {domain, resource, action} ->
-      function(domain, resource, action)
+    |> exposed_tools()
+    |> Enum.map(fn tool ->
+      function(tool.domain, tool.resource, tool.action)
     end)
   end
 
@@ -420,7 +421,7 @@ defmodule AshAi do
     [error]
   end
 
-  def to_json_api_errors(domain, resource, %{class: :invalid} = error, type) do
+  def to_json_api_errors(domain, _resource, %{class: :invalid} = error, _type) do
     if AshJsonApi.ToJsonApiError.impl_for(error) do
       error
       |> AshJsonApi.ToJsonApiError.to_json_api_error()
@@ -691,31 +692,39 @@ defmodule AshAi do
   end
 
   @doc false
-  def actions(opts) when is_list(opts) do
-    actions(Options.validate!(opts))
+  def exposed_tools(opts) when is_list(opts) do
+    exposed_tools(Options.validate!(opts))
   end
 
-  def actions(opts) do
+  def exposed_tools(opts) do
     if opts.actions do
       Enum.flat_map(opts.actions, fn
         {resource, actions} ->
-          if !Ash.Resource.Info.domain(resource) do
+          domain = Ash.Resource.Info.domain(resource)
+
+          if !domain do
             raise "Cannot use an ash resource that does not have a domain"
           end
 
+          tools = AshAi.Info.tools(domain)
+
+          if !Enum.any?(AshAi.Info.tools(domain), fn tool ->
+               tool.resource == resource && (actions == :* || tool.action in actions)
+             end) do
+            raise "Cannot use an action that is not exposed as a tool"
+          end
+
           if actions == :* do
-            Enum.map(Ash.Resource.Info.actions(resource), fn action ->
-              {Ash.Resource.Info.domain(resource), resource, action}
+            tools
+            |> Enum.filter(&(&1.resource == resource))
+            |> Enum.map(fn tool ->
+              %{tool | domain: domain, action: Ash.Resource.Info.action(resource, tool.action)}
             end)
           else
-            Enum.map(List.wrap(actions), fn action ->
-              action_struct = Ash.Resource.Info.action(resource, action)
-
-              unless action_struct do
-                raise "Action #{inspect(action)} does not exist on resource #{inspect(resource)}"
-              end
-
-              {Ash.Resource.Info.domain(resource), resource, action_struct}
+            tools
+            |> Enum.filter(&(&1.resource == resource && &1.action in actions))
+            |> Enum.map(fn tool ->
+              %{tool | domain: domain, action: Ash.Resource.Info.action(resource, tool.action)}
             end)
           end
       end)
@@ -725,33 +734,25 @@ defmodule AshAi do
       end
 
       for domain <- Application.get_env(opts.otp_app, :ash_domains) || [],
-          resource <- Ash.Domain.Info.resources(domain),
-          action <- Ash.Resource.Info.actions(resource),
-          AshAi in Spark.extensions(resource),
-          AshAi.Info.exposes?(domain, resource, action.name),
-          can?(opts.actor, domain, resource, action) do
-        {domain, resource, action}
+          tool <- AshAi.Info.tools(domain),
+          action = Ash.Resource.Info.action(tool.resource, tool.action),
+          can?(
+            opts.actor,
+            domain,
+            tool.resource,
+            action
+          ) do
+        %{tool | domain: domain, action: Ash.Resource.Info.action(tool.resource, tool.action)}
       end
-      |> Enum.uniq_by(fn {_domain, resource, action} ->
-        {resource, action}
-      end)
-      |> Enum.filter(fn {_domain, resource, action} ->
-        if opts.actions do
-          Enum.any?(opts.actions, fn {allowed_resource, allowed_actions} ->
-            allowed_resource == resource and (allowed_actions == :* or action in allowed_actions)
-          end)
-        else
-          true
-        end
-      end)
     end
-    |> then(fn actions ->
+    |> Enum.uniq()
+    |> then(fn tools ->
       if is_list(opts.exclude_actions) do
-        Enum.reject(actions, fn {_, resource, action} ->
-          {resource, action.name} in opts.exclude_actions
+        Enum.reject(tools, fn tool ->
+          {tool.resource, tool.action.name} in opts.exclude_actions
         end)
       else
-        actions
+        tools
       end
     end)
   end

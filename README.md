@@ -8,9 +8,13 @@ This is a _HIGHLY EXPERIMENTAL_ package. It is 500 lines of code built for a dem
 
 ```elixir
 defmodule MyApp.Blog do
-  agents do
-    expose_resource MyApp.Blog.Post, [:read, :create, :publish]
-    expose_resource MyApp.Blog.Comment, [:read]
+  use Ash.Domain, extensions: [AshAi]
+
+  tools do
+    tool :read_posts, MyApp.Blog.Post, :read
+    tool :create_post, MyApp.Blog.Post, :create
+    tool :publish_post, MyApp.Blog.Post, :publish
+    tool :read_comments, MyApp.Blog.Commonet, :read
   end
 end
 ```
