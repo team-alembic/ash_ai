@@ -80,6 +80,14 @@ vectorize do
 end
 ```
 
+If you are using policies, add a bypass to allow us to update the vector embeddings:
+
+```elixir
+bypass AshAi.Checks.ActorIsAshAi do
+  authorize_if always()
+end
+```
+
 
 ## What else ought to happen?
 
