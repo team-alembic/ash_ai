@@ -81,7 +81,7 @@ vectorize do
   attributes(name: :vectorized_name)
 
   # See the section below on defining an embedding model
-  embedding_model MyApp.EmbeddingModel
+  embedding_model MyApp.OpenAiEmbeddingModel
 end
 ```
 
@@ -101,14 +101,14 @@ generate embeddings using `OpenAi`. To use it, you'd need to install `req`
 (`mix igniter.install req`).
 
 ```elixir
-defmodule Tunez.OpenAILargeEmbeddingModel do
+defmodule Tunez.OpenAIEmbeddingModel do
   use AshAi.EmbeddingModel
 
   @impl true
-  def dimensions, do: 3072
+  def dimensions(_opts), do: 3072
 
   @impl true
-  def generate(texts) do
+  def generate(texts, _opts) do
     apikey = System.fetch_env!("OPEN_AI_API_KEY")
 
     headers = [
@@ -139,6 +139,14 @@ defmodule Tunez.OpenAILargeEmbeddingModel do
   end
 end
 ```
+
+Opts can be used to make embedding models that are dynamic depending on the resource, i.e
+
+```elixir
+embedding_model {MyApp.OpenAiEmbeddingModel, model: "a-specific-model"}
+```
+
+Those opts are available in the `_opts` argument to functions on your embedding model
 
 
 ## What else ought to happen?

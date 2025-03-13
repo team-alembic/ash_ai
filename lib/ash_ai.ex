@@ -50,7 +50,7 @@ defmodule AshAi do
           "How to compute the vector. Only `after_action` is supported, but eventually `ash_oban` will be supported as well"
       ],
       embedding_model: [
-        type: {:behaviour, AshAi.EmbeddingModel},
+        type: {:spark_behaviour, AshAi.EmbeddingModel},
         required: true
       ]
     ]

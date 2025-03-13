@@ -11,7 +11,8 @@ defmodule AshAi.Changes.VectorizeAfterAction do
         if changeset.action.name == :ash_ai_update_embeddings do
           {:ok, result}
         else
-          embedding_model = AshAi.Info.vectorize_embedding_model!(changeset.resource)
+          {embedding_model, vector_opts} =
+            AshAi.Info.vectorize_embedding_model!(changeset.resource)
 
           changes =
             opts[:vectors]
@@ -39,7 +40,7 @@ defmodule AshAi.Changes.VectorizeAfterAction do
 
           strings = Enum.map(changes, &elem(&1, 1))
 
-          case embedding_model.generate(strings) do
+          case embedding_model.generate(strings, vector_opts) do
             {:ok, vectors} ->
               changes =
                 Enum.zip_with(changes, vectors, fn {k, _}, r ->
