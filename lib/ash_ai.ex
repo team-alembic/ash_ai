@@ -393,12 +393,50 @@ defmodule AshAi do
           error ->
             {:error,
              Jason.encode!(
-               AshJsonApi.Error.to_json_api_errors(domain, resource, error, action.type)
+               serialize_errors(
+                 AshJsonApi.Error.to_json_api_errors(domain, resource, error, action.type)
+               )
              )}
         end
       end
     })
   end
+
+  defp serialize_errors(errors) do
+    errors
+    |> List.wrap()
+    |> Enum.map(fn error ->
+      %{}
+      |> add_if_defined(:id, error.id)
+      |> add_if_defined(:status, to_string(error.status_code))
+      |> add_if_defined(:code, error.code)
+      |> add_if_defined(:title, error.title)
+      |> add_if_defined(:detail, error.detail)
+      |> add_if_defined([:source, :pointer], error.source_pointer)
+      |> add_if_defined([:source, :parameter], error.source_parameter)
+      |> add_if_defined(:meta, parse_error(error.meta))
+    end)
+  end
+
+  defp add_if_defined(params, _, :undefined) do
+    params
+  end
+
+  defp add_if_defined(params, [key1, key2], value) do
+    params
+    |> Map.put_new(key1, %{})
+    |> Map.update!(key1, &Map.put(&1, key2, value))
+  end
+
+  defp add_if_defined(params, key, value) do
+    Map.put(params, key, value)
+  end
+
+  defp parse_error(%{match: %Regex{} = match} = error) do
+    %{error | match: Regex.source(match)}
+  end
+
+  defp parse_error(error), do: error
 
   defp add_action_specific_properties(properties, resource, %{type: :read}) do
     Map.merge(properties, %{
