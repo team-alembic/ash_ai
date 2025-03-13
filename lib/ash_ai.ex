@@ -132,7 +132,7 @@ defmodule AshAi do
     opts
     |> exposed_tools()
     |> Enum.map(fn tool ->
-      function(tool.domain, tool.resource, tool.action)
+      function(tool.name, tool.domain, tool.resource, tool.action)
     end)
   end
 
@@ -253,9 +253,8 @@ defmodule AshAi do
     |> Jason.decode!()
   end
 
-  defp function(domain, resource, action) do
-    name =
-      "#{String.replace(inspect(domain), ".", "_")}-#{String.replace(inspect(resource), ".", "_")}-#{action.name}"
+  defp function(name, domain, resource, action) do
+    name = to_string(name)
 
     description =
       action.description ||
