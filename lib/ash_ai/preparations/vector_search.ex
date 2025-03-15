@@ -5,9 +5,9 @@ defmodule AshAi.Preparations.VectorSearch do
   @impl true
   def prepare(query, opts, _context) do
     Ash.Query.before_action(query, fn query ->
-      {embedding_model, opts} = AshAi.Info.vectorize_embedding_model!(query.resource)
+      {embedding_model, embedding_opts} = AshAi.Info.vectorize_embedding_model!(query.resource)
 
-      case embedding_model.generate([query.arguments.query], opts) do
+      case embedding_model.generate([query.arguments.query], embedding_opts) do
         {:ok, [query_vec]} ->
           sort_expr =
             query.arguments.targets
