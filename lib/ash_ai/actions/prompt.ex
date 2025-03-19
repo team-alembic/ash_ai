@@ -37,16 +37,16 @@ defmodule AshAi.Actions.Prompt do
       |> Jason.encode!()
       |> Jason.decode!()
       |> then(fn schema ->
-          %{
-            "strict" => true,
-            "schema" => %{
-              "type" => "object",
-              "properties" => %{"result" => schema},
-              "required" => ["result"],
-              "additionalProperties" => false
-            },
-            "name" => "result"
-          }
+        %{
+          "strict" => true,
+          "schema" => %{
+            "type" => "object",
+            "properties" => %{"result" => schema},
+            "required" => ["result"],
+            "additionalProperties" => false
+          },
+          "name" => "result"
+        }
       end)
 
     llm =
