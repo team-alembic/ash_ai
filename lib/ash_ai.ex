@@ -219,7 +219,7 @@ defmodule AshAi do
           IO.puts(content)
         end
 
-        user_message = Mix.shell().prompt("> ")
+        user_message = get_user_message()
 
         new_chain
         |> LLMChain.add_messages([LangChain.Message.new_user!(user_message)])
@@ -227,6 +227,15 @@ defmodule AshAi do
 
       {:error, error} ->
         raise "Something went wrong:\n #{Exception.format(:error, error)}"
+    end
+  end
+
+  defp get_user_message() do
+    case Mix.shell().prompt("> ") do
+      nil -> get_user_message()
+      "" -> get_user_message()
+      "\n" -> get_user_message()
+      message -> message
     end
   end
 
