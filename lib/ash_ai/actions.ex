@@ -1,7 +1,7 @@
 defmodule AshAi.Actions do
   @moduledoc "Builtin generic action implementations"
 
-  defmacro prompt(llm, opts) do
+  defmacro prompt(llm, opts \\ []) do
     {llm, function1} =
       Spark.CodeHelpers.lift_functions(llm, :ash_ai_prompt_llm, __CALLER__)
 

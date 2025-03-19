@@ -270,6 +270,7 @@ defmodule AshAi do
       name: name,
       description: description,
       parameters_schema: parameter_schema,
+      strict: true,
       function: fn arguments, context ->
         actor = context[:actor]
 

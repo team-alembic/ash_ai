@@ -36,16 +36,18 @@ defmodule AshAi.Actions.Prompt do
       end
       |> Jason.encode!()
       |> Jason.decode!()
-      |> then(
-        &%{
-          "schema" => %{
-            "type" => "object",
-            "properties" => %{"result" => &1},
-            "required" => ["result"]
-          },
-          "name" => "result"
-        }
-      )
+      |> then(fn schema ->
+          %{
+            "strict" => true,
+            "schema" => %{
+              "type" => "object",
+              "properties" => %{"result" => schema},
+              "required" => ["result"],
+              "additionalProperties" => false
+            },
+            "name" => "result"
+          }
+      end)
 
     llm =
       Map.merge(llm, %{json_schema: json_schema, json_response: true})
@@ -126,7 +128,7 @@ defmodule AshAi.Actions.Prompt do
                  Ash.Type.apply_constraints(input.action.returns, value, input.action.constraints) do
             {:ok, value}
           else
-            _ ->
+            _error ->
               {:error, "Invalid LLM response"}
           end
         else
