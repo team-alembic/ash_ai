@@ -1,5 +1,6 @@
 spark_locals_without_parens = [
   attributes: 1,
+  embedding_model: 1,
   name: 1,
   strategy: 1,
   text: 1,
