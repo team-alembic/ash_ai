@@ -1,10 +1,6 @@
-# AshAi
+# Ash AI
 
-This is a _HIGHLY EXPERIMENTAL_ package. It is 500 lines of code built for a demo.
-
-## Whats in the box
-
-### Expose actions as tool calls
+## Expose actions as tool calls
 
 ```elixir
 defmodule MyApp.Blog do
@@ -56,7 +52,7 @@ action :analyze_sentiment, :atom do
 end
 ```
 
-### Vectorization
+## Vectorization
 
 This extension creates a vector search action and also rebuilds and stores a vector on all changes.
 This will make your app much slower in its current form. We wille ventually make it work where it triggers an oban
@@ -90,7 +86,7 @@ bypass AshAi.Checks.ActorIsAshAi do
 end
 ```
 
-#### Embedding Models
+### Embedding Models
 
 Embedding models are modules that are in charge of defining what the dimensions
 are of a given vector and how to generate one. This example uses `Req` to
@@ -146,26 +142,14 @@ embedding_model {MyApp.OpenAiEmbeddingModel, model: "a-specific-model"}
 Those opts are available in the `_opts` argument to functions on your embedding model
 
 
-## What else ought to happen?
+# Roadmap
 
 - more action types, like:
   - bulk updates
   - bulk destroys
   - bulk creates.
 
-## Installation
-
-This is not yet available on hex.
-
-```elixir
-def deps do
-  [
-    {:ash_ai, github: "ash-project/ash_ai"}
-  ]
-end
-```
-
-## How to play with it
+# How to play with it
 
 1. Setup `LangChain`
 2. Modify a `LangChain` using `AshAi.setup_ash_ai/2`` or use `AshAi.iex_chat` (see below)
