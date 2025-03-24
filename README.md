@@ -44,8 +44,8 @@ action :analyze_sentiment, :atom do
     LangChain.ChatModels.ChatOpenAI.new!(%{ model: "gpt-4o"}),
     # setting `tools: true` allows it to use all exposed tools in your app
     tools: true 
-    # alternatively you can restrict it to only a set of resources/actions
-    # tools: [{Resource, :action}, {OtherResource, :action}]
+    # alternatively you can restrict it to only a set of tools
+    # tools: [:list, :of, :tool, :names]
     # provide an optional prompt, which is an EEx template
      # prompt: "Analyze the sentiment of the following text: <%= @input.arguments.description %>"
   )
