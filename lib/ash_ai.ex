@@ -96,7 +96,13 @@ defmodule AshAi do
         actions: [
           type: {:wrap_list, {:tuple, [{:spark, Ash.Resource}, :atom]}},
           doc: """
-          A set of {Resource, :action} pairs, or `{Resource, :*}` for all actions.
+          A set of {Resource, :action} pairs, or `{Resource, :*}` for all actions. Defaults to everything. If `tools` is also set, both are applied as filters.
+          """
+        ],
+        tools: [
+          type: {:wrap_list, :atom},
+          doc: """
+           A list of tool names. If not set. Defaults to everything. If `actions` is also set, both are applied as filters.
           """
         ],
         exclude_actions: [
@@ -411,6 +417,8 @@ defmodule AshAi do
           end
         rescue
           error ->
+            error = Ash.Error.to_error_class(error)
+
             {:error,
              domain
              |> AshJsonApi.Error.to_json_api_errors(resource, error, action.type)
@@ -763,6 +771,15 @@ defmodule AshAi do
       if is_list(opts.exclude_actions) do
         Enum.reject(tools, fn tool ->
           {tool.resource, tool.action.name} in opts.exclude_actions
+        end)
+      else
+        tools
+      end
+    end)
+    |> then(fn tools ->
+      if allowed_tools = opts.tools do
+        Enum.filter(tools, fn tool ->
+          tool.name in List.wrap(allowed_tools)
         end)
       else
         tools

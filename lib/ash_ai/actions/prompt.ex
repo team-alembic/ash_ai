@@ -69,20 +69,14 @@ defmodule AshAi.Actions.Prompt do
           )
 
         tools ->
-          actions =
-            Enum.map(tools, fn
-              tool when is_atom(tool) ->
-                {input.domain, input.resource, tool}
-
-              {resource, tool} ->
-                {input.domain, resource, tool}
-
-              {domain, resource, tool} ->
-                {domain, resource, tool}
-            end)
+          otp_app =
+            Spark.otp_app(input.domain) ||
+              Spark.otp_app(input.resource) ||
+              raise "otp_app must be configured on the domain or the resource to get access to all tools"
 
           AshAi.functions(
-            actions: actions,
+            tools: List.wrap(tools),
+            otp_app: otp_app,
             exclude_actions: [{input.resource, input.action.name}]
           )
       end
