@@ -93,12 +93,42 @@ defmodule AshAi.Transformers.Vectorize do
         {:ok, dsl_state}
 
       vectors ->
-        dsl_state
-        |> add_change({AshAi.Changes.VectorizeAfterAction, [vectors: vectors]})
-        |> add_new_action(:update, :ash_ai_update_embeddings,
-          accept: Enum.map(vectors, &elem(&1, 1)),
-          require_atomic?: false
-        )
+        strategy = AshAi.Info.vectorize_strategy!(dsl_state)
+
+        case strategy do
+          :after_action ->
+            dsl_state
+            |> add_change({AshAi.Changes.VectorizeAfterAction, [vectors: vectors]})
+            |> add_new_action(:update, :ash_ai_update_embeddings,
+              accept: Enum.map(vectors, &elem(&1, 1)),
+              require_atomic?: false
+            )
+
+          :manual ->
+            if AshAi.Info.vectorize_define_update_action_for_manual_strategy?(dsl_state) do
+              dsl_state
+              |> add_new_action(:update, :ash_ai_update_embeddings,
+                accept: [],
+                changes: [
+                  %Ash.Resource.Change{
+                    change: {AshAi.Changes.Vectorize, [vectors: vectors]},
+                    on: nil,
+                    only_when_valid?: true,
+                    description: nil,
+                    always_atomic?: false,
+                    where: []
+                  }
+                ],
+                require_atomic?: false
+              )
+            else
+              {:ok, dsl_state}
+            end
+
+          _ ->
+            # TODO
+            raise "unreachable"
+        end
     end
   end
 
@@ -121,6 +151,13 @@ defmodule AshAi.Transformers.Vectorize do
       {:ok, _fun} ->
         case AshAi.Info.vectorize_strategy!(dsl_state) do
           :after_action ->
+            dsl_state
+            |> add_new_attribute(name, :vector,
+              constraints: [dimensions: embedding_model.dimensions(opts)],
+              select_by_default?: false
+            )
+
+          :manual ->
             dsl_state
             |> add_new_attribute(name, :vector,
               constraints: [dimensions: embedding_model.dimensions(opts)],
