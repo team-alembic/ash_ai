@@ -44,10 +44,18 @@ defmodule AshAi do
         default: []
       ],
       strategy: [
-        type: {:one_of, [:after_action]},
+        type: {:one_of, [:after_action, :manual]},
         default: :after_action,
         doc:
           "How to compute the vector. Only `after_action` is supported, but eventually `ash_oban` will be supported as well"
+      ],
+      define_update_action_for_manual_strategy?: [
+        type: :boolean,
+        default: true,
+        doc: """
+        If true, an `ash_ai_update_embeddings` update action will be defined, which will automatically
+        update the embeddings when run.
+        """
       ],
       embedding_model: [
         type: {:spark_behaviour, AshAi.EmbeddingModel},
@@ -784,6 +792,22 @@ defmodule AshAi do
       else
         tools
       end
+    end)
+  end
+
+  def has_vectorize_change?(%Ash.Changeset{} = changeset) do
+    full_text_attrs =
+      case AshAi.Info.vectorize_full_text_used_attributes(changeset.resource) do
+        {:ok, used_attrs} -> used_attrs
+        :error -> []
+      end
+
+    vectorized_attrs =
+      AshAi.Info.vectorize_attributes!(changeset.resource)
+      |> Enum.map(fn {attr, _} -> attr end)
+
+    Enum.any?(vectorized_attrs ++ full_text_attrs, fn attr ->
+      Ash.Changeset.changing_attribute?(changeset, attr)
     end)
   end
 
