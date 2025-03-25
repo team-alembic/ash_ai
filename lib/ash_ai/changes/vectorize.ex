@@ -1,12 +1,9 @@
 defmodule AshAi.Changes.Vectorize do
   use Ash.Resource.Change
 
-  def change(changeset, opts, context) do
+  def change(changeset, _opts, _context) do
     {embedding_model, vector_opts} =
       AshAi.Info.vectorize_embedding_model!(changeset.resource)
-
-    attrs =
-      AshAi.Info.vectorize_attributes!(changeset.resource)
 
     name = AshAi.Info.vectorize_full_text_name!(changeset.resource)
 
@@ -16,14 +13,8 @@ defmodule AshAi.Changes.Vectorize do
     changes =
       case AshAi.Info.vectorize_full_text_text(changeset.resource) do
         {:ok, fun} ->
-          used_attrs =
-            case AshAi.Info.vectorize_full_text_used_attributes(changeset.resource) do
-              {:ok, attrs} -> attrs
-              _ -> nil
-            end
-
           attrs ++
-            [{:full_text, name, used_attrs, fun}]
+            [{:full_text, name, fun}]
 
         _ ->
           attrs
@@ -33,7 +24,7 @@ defmodule AshAi.Changes.Vectorize do
           text = Map.get(changeset.data, source)
           [{dest, text}]
 
-        {:full_text, name, _used_attrs, fun} ->
+        {:full_text, name, fun} ->
           text = fun.(changeset.data)
           [{name, text}]
       end)
@@ -51,7 +42,11 @@ defmodule AshAi.Changes.Vectorize do
 
       {:error, error} ->
         fields = Enum.map(changes, fn {field, _} -> field end)
-        Ash.Changeset.add_error(changeset, fields: fields, message: "Error while vectorizing")
+
+        Ash.Changeset.add_error(changeset,
+          fields: fields,
+          message: "An error occurred while generating embeddings: #{inspect(error)}"
+        )
     end
   end
 
