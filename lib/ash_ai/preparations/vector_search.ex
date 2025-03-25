@@ -21,7 +21,7 @@ defmodule AshAi.Preparations.VectorSearch do
               end
             end)
 
-          Ash.Query.sort(query, {Ash.Sort.expr_sort(^sort_expr), :desc})
+          Ash.Query.sort(query, {Ash.Sort.expr_sort(^sort_expr), :asc})
       end
     end)
   end
