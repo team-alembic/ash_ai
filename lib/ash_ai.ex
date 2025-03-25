@@ -288,6 +288,7 @@ defmodule AshAi do
       strict: true,
       function: fn arguments, context ->
         actor = context[:actor]
+        tenant = context[:tenant]
 
         try do
           case action.type do
@@ -326,7 +327,8 @@ defmodule AshAi do
               end)
               |> Ash.Query.for_read(action.name, arguments["input"] || %{},
                 domain: domain,
-                actor: actor
+                actor: actor,
+                tenant: tenant
               )
               |> Ash.Actions.Read.unpaginated_read(action)
               |> case do
@@ -353,7 +355,8 @@ defmodule AshAi do
               |> Ash.get!(pkey)
               |> Ash.Changeset.for_update(action.name, arguments["input"],
                 domain: domain,
-                actor: actor
+                actor: actor,
+                tenant: tenant
               )
               |> Ash.update!()
               |> then(fn result ->
@@ -373,7 +376,8 @@ defmodule AshAi do
               |> Ash.get!(pkey)
               |> Ash.Changeset.for_destroy(action.name, arguments["input"],
                 domain: domain,
-                actor: actor
+                actor: actor,
+                tenant: tenant
               )
               |> Ash.destroy!()
               |> then(fn result ->
@@ -387,7 +391,8 @@ defmodule AshAi do
               resource
               |> Ash.Changeset.for_create(action.name, arguments["input"],
                 domain: domain,
-                actor: actor
+                actor: actor,
+                tenant: tenant
               )
               |> Ash.create!()
               |> then(fn result ->
@@ -401,7 +406,8 @@ defmodule AshAi do
               resource
               |> Ash.ActionInput.for_action(action.name, arguments["input"],
                 domain: domain,
-                actor: actor
+                actor: actor,
+                tenant: tenant
               )
               |> Ash.run_action!()
               |> then(fn result ->
