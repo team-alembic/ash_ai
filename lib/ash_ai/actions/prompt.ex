@@ -100,7 +100,11 @@ defmodule AshAi.Actions.Prompt do
       Message.new_user!("Perform the action.")
     ]
 
-    %{llm: llm, verbose: opts[:verbose] || false, custom_context: Map.from_struct(context)}
+    %{
+      llm: llm,
+      verbose: opts[:verbose] || false,
+      custom_context: Map.new(Ash.Context.to_opts(context))
+    }
     |> LLMChain.new!()
     |> LLMChain.add_messages(messages)
     |> LLMChain.add_tools(tools)
