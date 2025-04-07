@@ -1,14 +1,98 @@
 defmodule AshAi.Actions.Prompt do
+  @prompt_template """
+  You are responsible for performing the `<%= @input.action.name %>` action.
+
+  <%= if @input.action.description do %>
+  # Description
+  <%= @input.action.description %>
+  <% end %>
+  <%= for argument <- @input.action.arguments,
+      {:ok, value} = Ash.ActionInput.fetch_argument(@input, argument.name),
+      {:ok, value} = Ash.Type.dump_to_embedded(argument.type, value, argument.constraints) do %>
+  ## <%= argument.name %>
+  <%= if argument.description do %>
+  ### Description
+  <%= argument.description %>
+  <% end %>
+  ### Value
+  <%= Jason.encode!(value) %>
+  <% end %>
+  """
+  @moduledoc """
+  A generic action impl that returns structured outputs from an LLM matching the action return. 
+
+  Typically used via `prompt/2`, for example:
+
+  ```elixir
+  action :analyze_sentiment, :atom do
+    constraints one_of: [:positive, :negative]
+
+    description \"""
+    Analyzes the sentiment of a given piece of text to determine if it is overall positive or negative.
+    
+    Does not consider swear words as inherently negative.
+    \"""
+
+    argument :text, :string do
+      allow_nil? false
+      description "The text for analysis."
+    end
+
+    run prompt(
+      LangChain.ChatModels.ChatOpenAI.new!(%{ model: "gpt-4o"}),
+      # setting `tools: true` allows it to use all exposed tools in your app
+      tools: true 
+      # alternatively you can restrict it to only a set of tools
+      # tools: [:list, :of, :tool, :names]
+      # provide an optional prompt, which is an EEx template
+      # prompt: "Analyze the sentiment of the following text: <%= @input.arguments.description %>"
+    )
+  end
+  ```
+
+  The first argument to `prompt/2` is the `LangChain` model. It can also be a 2-arity function which will be invoked
+  with the input and the context, useful for dynamically selecting the model.
+
+  ## Options
+
+  - `:tools`: A list of tool names to expose to the agent call.
+  - `:verbose`: Set to `true` for more output to be logged.
+  - `:prompt`: A custom prompt as an `EEx` template. See the prompt section below.
+
+  ## Prompt
+
+  The prompt by default is generated using the action and input descriptions. You can provide your own prompt
+  via the `prompt` option which will be able to reference `@input` and `@context`.
+
+  We have found that the "3rd party" style description writing paired with the format we provide by default to be
+  a good basis point for LLMs who are meant to accomplish a task. With this in mind, for refining your prompt,
+  first try describing via the action description that desired outcome or operating basis of the action, as well
+  as how the LLM is meant to use them. State these passively as facts. For example, above we used: "Does not consider swear
+  words as inherently negative" instead of instructing the LLM via "Do not consider swear words as inherently negative".
+
+  You are of course free to use any prompting pattern you prefer, but the end result of the above prompting pattern
+  leads to having a great description of your actual logic, acting both as documentation and instructions to the 
+  LLM that executes the action.
+
+  The default prompt template is:
+
+  ```elixir
+  \"""
+  #{@prompt_template}
+  \"""
+  ```
+  """
   use Ash.Resource.Actions.Implementation
 
   alias LangChain.Chains.LLMChain
   alias LangChain.Message
 
+  # sobelow_skip ["RCE.EEx"]
   def run(input, opts, context) do
     llm =
       case opts[:llm] do
         function when is_function(function) ->
-          function.input(input, context)
+          function.(input, context)
 
         llm ->
           llm
@@ -86,19 +170,9 @@ defmodule AshAi.Actions.Prompt do
           )
       end
 
-    prompt =
-      case Keyword.fetch(opts, :prompt) do
-        {:ok, value} ->
-          EEx.eval_string(value, input: input, context: context)
+    prompt_template = Keyword.get(opts, :prompt, @prompt_template)
 
-        _ ->
-          """
-          You are responsible for performing the `#{input.action.name}` action.
-
-          #{description(input)}
-          #{inputs(input)}
-          """
-      end
+    prompt = EEx.eval_string(prompt_template, assigns: [input: input, context: context])
 
     messages = [
       Message.new_system!(prompt),
@@ -107,7 +181,7 @@ defmodule AshAi.Actions.Prompt do
 
     %{
       llm: llm,
-      verbose: opts[:verbose] || false,
+      verbose: opts[:verbose?] || false,
       custom_context: Map.new(Ash.Context.to_opts(context))
     }
     |> LLMChain.new!()
@@ -138,43 +212,8 @@ defmodule AshAi.Actions.Prompt do
           :ok
         end
 
-      {:error, error} ->
+      {:error, _, error} ->
         {:error, error}
     end
-  end
-
-  defp description(input) do
-    if input.action.description do
-      "# Description\n\n#{input.action.description}"
-    else
-      ""
-    end
-  end
-
-  defp inputs(%{action: %{arguments: []}}) do
-    ""
-  end
-
-  defp inputs(%{action: %{arguments: arguments}} = input) do
-    arguments
-    |> Enum.reduce(%{}, fn argument, acc ->
-      with {:ok, value} <- Ash.ActionInput.fetch_argument(input, argument.name),
-           {:ok, value} <- Ash.Type.dump_to_embedded(argument.type, value, argument.constraints) do
-        """
-        ## #{argument.name}
-        """
-        |> then(fn text ->
-          if argument.description do
-            text <> "\n### Description:\n\n#{argument.description}\n"
-          else
-            text
-          end
-        end)
-        |> Kernel.<>("### Value:\n\n#{Jason.encode!(value)}")
-      else
-        _ ->
-          acc
-      end
-    end)
   end
 end

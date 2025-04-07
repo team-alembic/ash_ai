@@ -25,7 +25,7 @@ Only tested against OpenAI.
 This allows defining an action, including input and output types, and delegating the
 implementation to an LLM. We use structured outputs to ensure that it always returns
 the correct data type. We also derive a default prompt from the action description and 
-action inputs.
+action inputs. See `AshAi.Actions.Prompt` for more information.
 
 ```elixir
 action :analyze_sentiment, :atom do
@@ -152,10 +152,9 @@ Those opts are available in the `_opts` argument to functions on your embedding 
 # How to play with it
 
 1. Setup `LangChain`
-2. Modify a `LangChain` using `AshAi.setup_ash_ai/2`` or use `AshAi.iex_chat` (see below)
+2. Modify a `LangChain` using `AshAi.setup_ash_ai/2` or use `AshAi.iex_chat` (see below)
 2. Run `iex -S mix` and then run `AshAi.iex_chat` to start chatting with your app.
-3. To build your own chat interface, you'll use `AshAi.instruct/2`. See the implementation
-   of `AshAi.iex_chat` to see how its done.
+3. Build your own chat interface. See the implementation of `AshAi.iex_chat` to see how its done.
 
 ## Using AshAi.iex_chat
 
@@ -167,7 +166,7 @@ defmodule MyApp.ChatBot do
   def iex_chat(actor \\ nil) do
     %{
       llm: ChatOpenAI.new!(%{model: "gpt-4o", stream: true),
-      verbose?: true
+      verbose: true
     }
     |> LLMChain.new!()
     |> AshAi.iex_chat(actor: actor, otp_app: :my_app)

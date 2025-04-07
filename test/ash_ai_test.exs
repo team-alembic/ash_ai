@@ -346,7 +346,7 @@ defmodule AshAiTest do
     }
   end
 
-  defp chain() do
+  defp chain do
     actions =
       AshAi.Info.tools(Music)
       |> Enum.group_by(& &1.resource, & &1.action)
@@ -357,7 +357,7 @@ defmodule AshAiTest do
     |> AshAi.setup_ash_ai(actions: actions)
   end
 
-  defp expect_fun() do
+  defp expect_fun do
     fn _chat_model, messages, _tools ->
       Message.new_assistant(%{processed_content: last_processed_content(messages)})
     end

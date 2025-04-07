@@ -52,10 +52,8 @@ defmodule AshAi do
       define_update_action_for_manual_strategy?: [
         type: :boolean,
         default: true,
-        doc: """
-        If true, an `ash_ai_update_embeddings` update action will be defined, which will automatically
-        update the embeddings when run.
-        """
+        doc:
+          "If true, an `ash_ai_update_embeddings` update action will be defined, which will automatically update the embeddings when run."
       ],
       embedding_model: [
         type: {:spark_behaviour, AshAi.EmbeddingModel},
@@ -101,6 +99,7 @@ defmodule AshAi do
   end
 
   defmodule Options do
+    @moduledoc false
     use Spark.Options.Validator,
       schema: [
         actions: [
@@ -143,7 +142,7 @@ defmodule AshAi do
           doc: "If present, allows discovering resource actions automatically."
         ],
         system_prompt: [
-          type: {:fun, 1},
+          type: {:or, [{:fun, 1}, {:literal, :none}]},
           doc: """
           A system prompt that takes the provided options and returns a system prompt.
 
@@ -159,9 +158,6 @@ defmodule AshAi do
     |> exposed_tools()
     |> Enum.map(&function/1)
   end
-
-  # def ask_about_actions_function(otp_app_or_actions) do
-  # end
 
   def iex_chat(lang_chain, opts \\ []) do
     opts = Options.validate!(opts)
@@ -180,7 +176,7 @@ defmodule AshAi do
           ]
 
         system_prompt ->
-          [LangChain.Message.new_system!(system_prompt)]
+          [LangChain.Message.new_system!(system_prompt.(opts))]
       end
 
     handler = %{
@@ -213,18 +209,16 @@ defmodule AshAi do
 
   @doc """
   Adds the requisite context and tool calls to allow an agent to interact with your app.
-
-
   """
-  def setup_ash_ai(lang_chain, opts \\ []) do
+  def setup_ash_ai(lang_chain, opts \\ [])
+
+  def setup_ash_ai(lang_chain, opts) when is_list(opts) do
     opts = Options.validate!(opts)
+    setup_ash_ai(lang_chain, opts)
+  end
 
+  def setup_ash_ai(lang_chain, opts) do
     tools = functions(opts)
-
-    if Enum.count_until(tools, 32) == 32 do
-      raise "can't do more than 32 tools right now"
-      # TODO: select_and_execute_action()
-    end
 
     lang_chain
     |> LLMChain.add_tools(tools)
@@ -253,7 +247,7 @@ defmodule AshAi do
     end
   end
 
-  defp get_user_message() do
+  defp get_user_message do
     case Mix.shell().prompt("> ") do
       nil -> get_user_message()
       "" -> get_user_message()
@@ -734,6 +728,7 @@ defmodule AshAi do
   end
 
   @doc false
+
   def exposed_tools(opts) when is_list(opts) do
     exposed_tools(Options.validate!(opts))
   end

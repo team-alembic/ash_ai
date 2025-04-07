@@ -1,4 +1,5 @@
 defmodule AshAi.ChatFaker do
+  @moduledoc false
   @behaviour LangChain.ChatModels.ChatModel
 
   alias LangChain.Message

@@ -1,4 +1,5 @@
 defmodule AshAi.Transformers.Vectorize do
+  @moduledoc false
   use Spark.Dsl.Transformer
 
   import Spark.Dsl.Builder
@@ -124,10 +125,6 @@ defmodule AshAi.Transformers.Vectorize do
             else
               {:ok, dsl_state}
             end
-
-          _ ->
-            # TODO
-            raise "unreachable"
         end
     end
   end
@@ -163,10 +160,6 @@ defmodule AshAi.Transformers.Vectorize do
               constraints: [dimensions: embedding_model.dimensions(opts)],
               select_by_default?: false
             )
-
-          _ ->
-            # TODO
-            raise "unreachable"
         end
 
       _ ->

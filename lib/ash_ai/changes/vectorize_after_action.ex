@@ -1,4 +1,5 @@
 defmodule AshAi.Changes.VectorizeAfterAction do
+  @moduledoc "Vectorizes attributes inline immediately after they are changed"
   use Ash.Resource.Change
 
   # TODO add bulk action callbacks here?

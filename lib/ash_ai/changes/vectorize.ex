@@ -1,4 +1,10 @@
 defmodule AshAi.Changes.Vectorize do
+  @moduledoc """
+  A change that vectorizes the current values of attributes for a given record.
+  Used by the manual vectorization strategy, so you can decide
+  later when to run the vectorization action.
+  """
+
   use Ash.Resource.Change
 
   def change(changeset, _opts, _context) do

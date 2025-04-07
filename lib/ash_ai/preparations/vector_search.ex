@@ -1,4 +1,5 @@
 defmodule AshAi.Preparations.VectorSearch do
+  @moduledoc "A simple/naive vector search that sorts by the sum of distances to the vector search term"
   use Ash.Resource.Preparation
   require Ash.Sort
 

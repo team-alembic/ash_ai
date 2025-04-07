@@ -1,15 +1,30 @@
 defmodule AshAi.MixProject do
   use Mix.Project
 
+  @description """
+  Integrated LLM features for your Ash application.
+  """
+
+  @version "0.1.0"
+
+  @source_url "https://github.com/ash-project/ash_ai"
+
   def project do
     [
       app: :ash_ai,
-      version: "0.1.0",
+      version: @version,
       elixir: "~> 1.17",
       elixirc_paths: elixirc_paths(Mix.env()),
+      package: package(),
+      consolidate_protocols: Mix.env() == :prod,
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
-      deps: deps()
+      deps: deps(),
+      docs: &docs/0,
+      dialyzer: [plt_add_apps: [:ash, :mix]],
+      description: @description,
+      source_url: @source_url,
+      homepage_url: @source_url
     ]
   end
 
@@ -17,6 +32,75 @@ defmodule AshAi.MixProject do
   def application do
     [
       extra_applications: [:logger]
+    ]
+  end
+
+  defp docs do
+    [
+      main: "readme",
+      source_ref: "v#{@version}",
+      logo: "logos/small-logo.png",
+      extra_section: "GUIDES",
+      before_closing_head_tag: fn type ->
+        if type == :html do
+          """
+          <script>
+            if (location.hostname === "hexdocs.pm") {
+              var script = document.createElement("script");
+              script.src = "https://plausible.io/js/script.js";
+              script.setAttribute("defer", "defer")
+              script.setAttribute("data-domain", "ashhexdocs")
+              document.head.appendChild(script);
+            }
+          </script>
+          """
+        end
+      end,
+      extras: [
+        {"README.md", title: "Home"},
+        {"documentation/dsls/DSL-AshAi.md", search_data: Spark.Docs.search_data_for(AshAi)}
+        # "CHANGELOG.md"
+      ],
+      groups_for_extras: [
+        Tutorials: ~r'documentation/tutorials',
+        "How To": ~r'documentation/how_to',
+        Topics: ~r'documentation/topics',
+        DSLs: ~r'documentation/dsls',
+        "About AshGraphql": [
+          "CHANGELOG.md"
+        ]
+      ],
+      groups_for_modules: [
+        AshGraphql: [
+          AshGraphql
+        ],
+        Introspection: [
+          AshGraphql.Resource.Info,
+          AshGraphql.Domain.Info,
+          AshGraphql.Resource,
+          AshGraphql.Domain,
+          AshGraphql.Resource.Action,
+          AshGraphql.Resource.ManagedRelationship,
+          AshGraphql.Resource.Mutation,
+          AshGraphql.Resource.Query
+        ],
+        Errors: [
+          AshGraphql.Error,
+          AshGraphql.Errors
+        ],
+        Miscellaneous: [
+          AshGraphql.Resource.Helpers
+        ],
+        Utilities: [
+          AshGraphql.ContextHelpers,
+          AshGraphql.DefaultErrorHandler,
+          AshGraphql.Plug,
+          AshGraphql.Subscription,
+          AshGraphql.Type,
+          AshGraphql.Types.JSON,
+          AshGraphql.Types.JSONString
+        ]
+      ]
     ]
   end
 
@@ -28,6 +112,23 @@ defmodule AshAi.MixProject do
     ["lib/"]
   end
 
+  defp package do
+    [
+      name: :ash_ai,
+      licenses: ["MIT"],
+      maintainers: "Zach Daniel",
+      files: ~w(lib .formatter.exs mix.exs README* LICENSE*
+      CHANGELOG* documentation),
+      links: %{
+        "GitHub" => @source_url,
+        "Discord" => "https://discord.gg/HTHRaaVPUc",
+        "Website" => "https://ash-hq.org",
+        "Forum" => "https://elixirforum.com/c/ash-framework-forum/",
+        "Changelog" => "#{@source_url}/blob/main/CHANGELOG.md"
+      }
+    ]
+  end
+
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
@@ -35,15 +136,31 @@ defmodule AshAi.MixProject do
       {:ash_json_api, github: "ash-project/ash_json_api"},
       {:open_api_spex, "~> 3.0"},
       {:langchain, "~> 0.3"},
-      {:igniter, "~> 0.5", optional: true}
-      # {:dep_from_hexpm, "~> 0.3.0"},
-      # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"}
+      {:igniter, "~> 0.5", optional: true},
+      # dev/test deps
+      {:ex_doc, "~> 0.37-rc", only: [:dev, :test], runtime: false},
+      {:ex_check, "~> 0.12", only: [:dev, :test]},
+      {:credo, ">= 0.0.0", only: [:dev, :test], runtime: false},
+      {:dialyxir, ">= 0.0.0", only: [:dev, :test], runtime: false},
+      {:sobelow, ">= 0.0.0", only: [:dev, :test], runtime: false},
+      {:git_ops, "~> 2.5", only: [:dev, :test]},
+      {:mix_test_watch, "~> 1.0", only: :dev, runtime: false},
+      {:simple_sat, ">= 0.0.0", only: :test},
+      {:mix_audit, ">= 0.0.0", only: [:dev, :test], runtime: false}
     ]
   end
 
   defp aliases do
     [
-      "spark.formatter": "spark.formatter --extensions AshAi"
+      "spark.formatter": "spark.formatter --extensions AshAi",
+      sobelow: "sobelow --skip",
+      credo: "credo --strict",
+      docs: [
+        "spark.cheat_sheets",
+        "docs",
+        "spark.replace_doc_links"
+      ],
+      "spark.cheat_sheets": "spark.cheat_sheets --extensions AshAi"
     ]
   end
 end
