@@ -1,5 +1,38 @@
 # Ash AI
 
+## `mix ash_ai.gen.chat`
+
+This is a new and experimental tool to generate a chat feature for your Ash & Phoenix application. It is backed by `ash_oban` and `ash_postgres`, using `pub_sub` to stream messages to the client. This is primarily a tool to get started with chat features and is by no means intended to handle very case you can come up with.
+
+To get started:
+```
+mix ash_ai.gen.chat --live
+```
+
+The `--live` flag indicates that you wish to generate liveviews in addition to the chat resources.
+
+It currently requires a `user` resource to exist. If your `user` resource is not called `<YourApp>.Accounts.User`, provide a custom user resource with the `--user`
+flag.
+
+To try it out from scratch:
+
+```sh
+mix igniter.new my_app \
+  --with phx.new \
+  --install ash,ash_postgres,ash_phoenix \
+  --install ash_authentication_phoenix,ash_oban \
+  --install ash_ai@github:ash-project/ash_ai \
+  --auth-strategy password
+```
+
+and then run:
+
+```sh
+mix ash_ai.gen.chat --live
+```
+
+You can then start your server and visit `http://localhost:4000/chat` to see the chat feature in action. You will be prompted to register first and sign in the first time.
+
 ## Expose actions as tool calls
 
 ```elixir
@@ -15,16 +48,16 @@ defmodule MyApp.Blog do
 end
 ```
 
-Expose these actions as tools. When you call `AshAi.setup_ash_ai(chain, opts)`, or `AshAi.iex_chat/2` 
+Expose these actions as tools. When you call `AshAi.setup_ash_ai(chain, opts)`, or `AshAi.iex_chat/2`
 it will add those as tool calls to the agent.
 
-### Prompt-backed actions
+## Prompt-backed actions
 
 Only tested against OpenAI.
 
 This allows defining an action, including input and output types, and delegating the
 implementation to an LLM. We use structured outputs to ensure that it always returns
-the correct data type. We also derive a default prompt from the action description and 
+the correct data type. We also derive a default prompt from the action description and
 action inputs. See `AshAi.Actions.Prompt` for more information.
 
 ```elixir
@@ -43,7 +76,7 @@ action :analyze_sentiment, :atom do
   run prompt(
     LangChain.ChatModels.ChatOpenAI.new!(%{ model: "gpt-4o"}),
     # setting `tools: true` allows it to use all exposed tools in your app
-    tools: true 
+    tools: true
     # alternatively you can restrict it to only a set of tools
     # tools: [:list, :of, :tool, :names]
     # provide an optional prompt, which is an EEx template
@@ -90,7 +123,7 @@ end
 
 Embedding models are modules that are in charge of defining what the dimensions
 are of a given vector and how to generate one. This example uses `Req` to
-generate embeddings using `OpenAi`. To use it, you'd need to install `req` 
+generate embeddings using `OpenAi`. To use it, you'd need to install `req`
 (`mix igniter.install req`).
 
 ```elixir
