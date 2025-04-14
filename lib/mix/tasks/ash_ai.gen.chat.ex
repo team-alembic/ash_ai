@@ -347,6 +347,8 @@ if Code.ensure_loaded?(Igniter) do
         argument :complete, :boolean, default: false
         argument :text, :string, allow_nil?: false, constraints: [trim?: false]
 
+        validate argument_does_not_equal?(:text, "")
+
         # if updating
         #   if complete, set the text to the provided text
         #   if streaming still, add the text to the provided text
