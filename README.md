@@ -1,6 +1,5 @@
 # Ash AI
-
-![Logo](https://github.com/ash-project/ash_ai/blob/main/logos/ash_ai.png?raw=true)
+<img src="https://github.com/ash-project/ash_ai/blob/main/logos/ash_ai.png?raw=true" alt="Logo" width="500"/>
 
 ## `mix ash_ai.gen.chat`
 
