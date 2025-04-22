@@ -170,8 +170,8 @@ if Code.ensure_loaded?(Igniter) do
       end
       """)
       |> Ash.Resource.Igniter.add_new_calculation(conversation, :needs_name, """
-      calculate :needs_name, :boolean do
-        calculation expr(is_nil(name) and (count(messages) > 3 or (count(messages) > 1 and inserted_at < ago(10, :minute))))
+      calculate :needs_title, :boolean do
+        calculation expr(is_nil(title) and (count(messages) > 3 or (count(messages) > 1 and inserted_at < ago(10, :minute))))
       end
       """)
       |> Ash.Resource.Igniter.add_new_action(conversation, :generate_name, """
@@ -813,7 +813,7 @@ if Code.ensure_loaded?(Igniter) do
         lock_for_update? false
         worker_module_name #{inspect(name_conversation_worker_module_name)}
         scheduler_module_name #{inspect(name_conversation_scheduler_module_name)}
-        where expr(needs_name)
+        where expr(needs_title)
       end
       """)
     end
