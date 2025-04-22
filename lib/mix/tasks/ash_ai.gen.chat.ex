@@ -64,7 +64,7 @@ if Code.ensure_loaded?(Igniter) do
       otp_app = Igniter.Project.Application.app_name(igniter)
 
       igniter
-      |> ensure_deps()
+      |> ensure_deps(otp_app)
       |> configure()
       |> create_conversation(conversation, message, user)
       |> create_message(chat, conversation, message, otp_app)
@@ -81,7 +81,7 @@ if Code.ensure_loaded?(Igniter) do
       """)
     end
 
-    defp ensure_deps(igniter) do
+    defp ensure_deps(igniter, otp_app) do
       {igniter, install_ash_phoenix?} =
         if Igniter.Project.Deps.has_dep?(igniter, :ash_phoenix) do
           {igniter, false}
@@ -120,6 +120,18 @@ if Code.ensure_loaded?(Igniter) do
           igniter
           |> Igniter.compose_task("oban.install")
           |> Igniter.compose_task("ash_oban.install")
+          |> Igniter.Project.Config.configure(
+            "config.exs",
+            otp_app,
+            [Oban, :queues, :chat_responses, :limit],
+            10
+          )
+          |> Igniter.Project.Config.configure(
+            "config.exs",
+            otp_app,
+            [Oban, :queues, :conversations, :limit],
+            10
+          )
         else
           igniter
         end
@@ -159,7 +171,7 @@ if Code.ensure_loaded?(Igniter) do
       """)
       |> Ash.Resource.Igniter.add_new_calculation(conversation, :needs_name, """
       calculate :needs_name, :boolean do
-        calculation expr(count(messages) > 3 or (count(messages) > 1 and inserted_at < ago(10, :minute)))
+        calculation expr(is_nil(name) and (count(messages) > 3 or (count(messages) > 1 and inserted_at < ago(10, :minute))))
       end
       """)
       |> Ash.Resource.Igniter.add_new_action(conversation, :generate_name, """
@@ -804,19 +816,6 @@ if Code.ensure_loaded?(Igniter) do
         where expr(needs_name)
       end
       """)
-      # todo: make this smarter
-      |> Igniter.Project.Config.configure(
-        "config.exs",
-        otp_app,
-        [Oban, :queues, :chat_responses, :limit],
-        10
-      )
-      |> Igniter.Project.Config.configure(
-        "config.exs",
-        otp_app,
-        [Oban, :queues, :conversations, :limit],
-        10
-      )
     end
 
     defp add_new_trigger(igniter, conversation, name, code) do
