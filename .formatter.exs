@@ -1,4 +1,5 @@
 spark_locals_without_parens = [
+  ash_oban_trigger_name: 1,
   async: 1,
   attributes: 1,
   define_update_action_for_manual_strategy?: 1,
@@ -13,6 +14,8 @@ spark_locals_without_parens = [
 ]
 
 [
+  locals_without_parens: spark_locals_without_parens,
+  import_deps: [:ash],
   export: [
     locals_without_parens: spark_locals_without_parens
   ],
