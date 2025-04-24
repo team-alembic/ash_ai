@@ -70,7 +70,7 @@ if Code.ensure_loaded?(Igniter) do
       |> create_message(chat, conversation, message, otp_app)
       |> add_chat_live(chat, conversation, message)
       |> add_code_interfaces(chat, conversation, message, user)
-      |> add_triggers(message, conversation, user, otp_app)
+      |> add_triggers(message, conversation, user)
       |> Ash.Igniter.codegen("add_ai_chat")
       |> Igniter.add_notice("""
       AshAi:
@@ -759,7 +759,7 @@ if Code.ensure_loaded?(Igniter) do
       end
     end
 
-    defp add_triggers(igniter, message, conversation, user, otp_app) do
+    defp add_triggers(igniter, message, conversation, user) do
       actor_persister = Igniter.Project.Module.module_name(igniter, "AiAgentActorPersister")
       respond_worker_module_name = Module.concat([message, "Workers.Respond"])
       respond_scheduler_module_name = Module.concat([message, "Schedulers.Respond"])
