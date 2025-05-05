@@ -120,22 +120,22 @@ if Code.ensure_loaded?(Igniter) do
           igniter
           |> Igniter.compose_task("oban.install")
           |> Igniter.compose_task("ash_oban.install")
-          |> Igniter.Project.Config.configure(
-            "config.exs",
-            otp_app,
-            [Oban, :queues, :chat_responses, :limit],
-            10
-          )
-          |> Igniter.Project.Config.configure(
-            "config.exs",
-            otp_app,
-            [Oban, :queues, :conversations, :limit],
-            10
-          )
         else
           igniter
         end
       end)
+      |> Igniter.Project.Config.configure(
+        "config.exs",
+        otp_app,
+        [Oban, :queues, :chat_responses, :limit],
+        10
+      )
+      |> Igniter.Project.Config.configure(
+        "config.exs",
+        otp_app,
+        [Oban, :queues, :conversations, :limit],
+        10
+      )
     end
 
     defp create_conversation(igniter, conversation, message, user) do
