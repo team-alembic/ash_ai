@@ -3,6 +3,7 @@ spark_locals_without_parens = [
   async: 1,
   attributes: 1,
   define_update_action_for_manual_strategy?: 1,
+  description: 1,
   embedding_model: 1,
   identity: 1,
   load: 1,

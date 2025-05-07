@@ -41,6 +41,7 @@ tool name, resource, action
 |------|------|---------|------|
 | [`load`](#tools-tool-load){: #tools-tool-load } | `any` | `[]` |  |
 | [`async`](#tools-tool-async){: #tools-tool-async } | `boolean` | `true` |  |
+| [`description`](#tools-tool-description){: #tools-tool-description } | `String.t` |  | A description for the tool. Defaults to the action's description. |
 | [`identity`](#tools-tool-identity){: #tools-tool-identity } | `atom` |  | The identity to use for update/destroy actions. Defaults to the primary key. Set to `false` to disable entirely. |
 
 
