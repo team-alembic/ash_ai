@@ -49,6 +49,6 @@ scope "/mcp" do
     # You will need to set the `protocol_version_statement` to the
     # older version.
     protocol_version_statement: "2024-11-05",
-    otp_app: :shirabe
+    otp_app: :my_app
 end
 ```
