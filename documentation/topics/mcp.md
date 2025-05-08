@@ -37,7 +37,7 @@ end
 
 ```elixir
 scope "/mcp" do
-  pipe_through :api_key
+  pipe_through :mcp
 
   forward "/", AshAi.Mcp.Router,
     tools: [
