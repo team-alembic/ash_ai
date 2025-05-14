@@ -98,11 +98,11 @@ if Code.ensure_loaded?(Igniter) do
           """,
           router: router
         )
-        |> add_plug_to_endpoint(endpoint)
+        |> add_plug_to_endpoint(endpoint, otp_app)
       end
     end
 
-    defp add_plug_to_endpoint(igniter, endpoint) do
+    defp add_plug_to_endpoint(igniter, endpoint, otp_app) do
       Igniter.Project.Module.find_and_update_module!(igniter, endpoint, fn zipper ->
         with {:ok, zipper} <- Igniter.Code.Common.move_to(zipper, &code_reloading?/1),
              {:ok, zipper} <- Igniter.Code.Common.move_to_do_block(zipper) do
@@ -114,8 +114,8 @@ if Code.ensure_loaded?(Igniter) do
                # If using mcp-remote, and this issue is not fixed yet: https://github.com/geelen/mcp-remote/issues/66
                # You will need to set the `protocol_version_statement` to the
                # older version.
-               # protocol_version_statement: "2024-11-05",
-               otp_app: :your_app
+               protocol_version_statement: "2024-11-05",
+               otp_app: :#{otp_app}
              """,
              placement: :before
            )}
