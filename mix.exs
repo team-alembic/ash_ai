@@ -71,8 +71,7 @@ defmodule AshAi.MixProject do
       extras: [
         {"README.md", title: "Home"},
         {"documentation/dsls/DSL-AshAi.md", search_data: Spark.Docs.search_data_for(AshAi)},
-        "documentation/topics/mcp.md"
-        # "CHANGELOG.md"
+        "CHANGELOG.md"
       ],
       groups_for_extras: [
         Tutorials: ~r'documentation/tutorials',
