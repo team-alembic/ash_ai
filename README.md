@@ -257,6 +257,27 @@ embedding_model {MyApp.OpenAiEmbeddingModel, model: "a-specific-model"}
 
 Those opts are available in the `_opts` argument to functions on your embedding model
 
+## Using the vectors
+
+You can use expressions in filters and sorts like `vector_cosine_distance(full_text_vector, ^search_vector)`. For example:
+
+```elixir
+read :search do
+  argument :query, :string, allow_nil?: false
+
+  prepare before_action(fn query, context ->
+    case YourEmbeddingModel.generate([query.arguments.query], []) do
+      {:ok, [search_vector]} ->
+        Ash.Query.filter(
+          query,
+          vector_cosine_distance(full_text_vector, ^vector) < 0.5
+        )
+      {:error, error} ->
+        {:error, error}
+    end
+  end)
+end
+```
 
 # Roadmap
 
