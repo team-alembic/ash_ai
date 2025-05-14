@@ -1,5 +1,6 @@
 if Code.ensure_loaded?(AshAuthentication) do
   defmodule AshAi.AshAuth do
+    @moduledoc false
     def setup_api_key_auth(igniter, router, user) do
       {igniter, defines?} =
         AshAuthentication.Igniter.defines_strategy(igniter, user, :api_key, :api_key)
@@ -33,6 +34,7 @@ if Code.ensure_loaded?(AshAuthentication) do
   end
 else
   defmodule AshAi.AshAuth do
+    @moduledoc false
     def setup_api_key_auth(igniter, _router, _user) do
       {igniter, false}
     end
