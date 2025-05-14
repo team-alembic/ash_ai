@@ -198,9 +198,10 @@ if Code.ensure_loaded?(Igniter) do
             #{inspect(message)}
             |> Ash.Query.filter(conversation_id == ^conversation.id)
             |> Ash.Query.limit(3)
-            |> Ash.Query.select(:text)
-            |> Ash.Query.sort(inserted_at: :asc)
-            |> Ash.list!(:text)
+            |> Ash.Query.select([:text, :source])
+            |> Ash.Query.sort(inserted_at: :desc)
+            |> Ash.read!()
+            |> Enum.concat([%{source: :user, text: message.text}])
 
           system_prompt =
             LangChain.Message.new_system!(\"""
@@ -209,15 +210,22 @@ if Code.ensure_loaded?(Igniter) do
             RESPOND WITH ONLY THE NEW CONVERSATION NAME.
             \""")
 
-          user_messages =
-            Enum.map(messages, &LangChain.Message.new_user!/1)
+          message_chain =
+            Enum.map(messages, fn message ->
+              if message.source == :agent do
+                LangChain.Message.new_assistant!(message.text)
+              else
+                LangChain.Message.new_user!(message.text)
+              end
+            end)
 
           %{
             llm: ChatOpenAI.new!(%{model: "gpt-4o", custom_context: Map.new(Ash.Context.to_opts(context))}),
             verbose?: true
           }
           |> LLMChain.new!()
-          |> LLMChain.add_messages([system_prompt | user_messages])
+          |> LLMChain.add_message(system_prompt)
+          |> LLMChain.add_messages(message_chain)
           |> LLMChain.run(mode: :while_needs_response)
           |> case do
             {:ok,

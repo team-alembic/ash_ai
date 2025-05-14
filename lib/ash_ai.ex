@@ -1030,7 +1030,8 @@ defmodule AshAi do
       tenant: tenant,
       domain: domain,
       maybe_is: true,
-      run_queries?: false
+      run_queries?: false,
+      pre_flight?: false
     )
   end
 end
