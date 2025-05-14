@@ -1,7 +1,9 @@
 defmodule AshAi.DevTools.Tools do
+  @moduledoc false
   use Ash.Resource, domain: AshAi.DevTools
 
   defmodule Task do
+    @moduledoc false
     use Ash.Type.NewType,
       subtype_of: :map,
       constraints: [
@@ -13,6 +15,7 @@ defmodule AshAi.DevTools.Tools do
   end
 
   defmodule Resource do
+    @moduledoc false
     use Ash.Type.NewType,
       subtype_of: :map,
       constraints: [

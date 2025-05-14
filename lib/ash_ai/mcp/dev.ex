@@ -1,8 +1,5 @@
 defmodule AshAi.Mcp.Dev do
-end
-
-defmodule AshAi.Mcp.Dev do
-  @moduledoc false
+  @moduledoc "Place in your endpoint's code_reloading section to expose Ash dev MCP at /mcp/ash"
   @behaviour Plug
 
   @impl true
@@ -17,5 +14,5 @@ defmodule AshAi.Mcp.Dev do
     |> Plug.Conn.halt()
   end
 
-  def call(conn, _opts), do: conn |> tap(&IO.inspect(&1.path_info))
+  def call(conn, _opts), do: conn
 end

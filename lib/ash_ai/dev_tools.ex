@@ -1,4 +1,5 @@
 defmodule AshAi.DevTools do
+  @moduledoc false
   use Ash.Domain,
     extensions: [AshAi],
     validate_config_inclusion?: false
