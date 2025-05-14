@@ -19,7 +19,7 @@ defmodule AshAi.Actions.Prompt do
   <% end %>
   """
   @moduledoc """
-  A generic action impl that returns structured outputs from an LLM matching the action return. 
+  A generic action impl that returns structured outputs from an LLM matching the action return.
 
   Typically used via `prompt/2`, for example:
 
@@ -29,7 +29,7 @@ defmodule AshAi.Actions.Prompt do
 
     description \"""
     Analyzes the sentiment of a given piece of text to determine if it is overall positive or negative.
-    
+
     Does not consider swear words as inherently negative.
     \"""
 
@@ -41,7 +41,7 @@ defmodule AshAi.Actions.Prompt do
     run prompt(
       LangChain.ChatModels.ChatOpenAI.new!(%{ model: "gpt-4o"}),
       # setting `tools: true` allows it to use all exposed tools in your app
-      tools: true 
+      tools: true
       # alternatively you can restrict it to only a set of tools
       # tools: [:list, :of, :tool, :names]
       # provide an optional prompt, which is an EEx template
@@ -56,7 +56,7 @@ defmodule AshAi.Actions.Prompt do
   ## Options
 
   - `:tools`: A list of tool names to expose to the agent call.
-  - `:verbose`: Set to `true` for more output to be logged.
+  - `:verbose?`: Set to `true` for more output to be logged.
   - `:prompt`: A custom prompt as an `EEx` template. See the prompt section below.
 
   ## Prompt
@@ -71,7 +71,7 @@ defmodule AshAi.Actions.Prompt do
   words as inherently negative" instead of instructing the LLM via "Do not consider swear words as inherently negative".
 
   You are of course free to use any prompting pattern you prefer, but the end result of the above prompting pattern
-  leads to having a great description of your actual logic, acting both as documentation and instructions to the 
+  leads to having a great description of your actual logic, acting both as documentation and instructions to the
   LLM that executes the action.
 
   The default prompt template is:

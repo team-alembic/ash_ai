@@ -950,7 +950,7 @@ defmodule AshAi do
 
           tools = AshAi.Info.tools(domain)
 
-          if !Enum.any?(AshAi.Info.tools(domain), fn tool ->
+          if !Enum.any?(tools, fn tool ->
                tool.resource == resource && (actions == :* || tool.action in actions)
              end) do
             raise "Cannot use an action that is not exposed as a tool"

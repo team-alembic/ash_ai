@@ -29,44 +29,7 @@ defmodule AshAi.Transformers.Vectorize do
       |> Enum.reduce({:ok, dsl}, &vectorize_attribute(&2, &1))
       |> full_text_vector()
       |> update_vectors_action()
-      |> add_vector_search_action()
     end
-  end
-
-  defbuilder add_vector_search_action(dsl_state) do
-    attrs =
-      dsl_state
-      |> AshAi.Info.vectorize_attributes!()
-
-    {attrs, default} =
-      case AshAi.Info.vectorize_full_text_text(dsl_state) do
-        {:ok, _text} ->
-          default = [full_text: AshAi.Info.vectorize_full_text_name!(dsl_state)]
-          {attrs ++ default, [:full_text]}
-
-        _ ->
-          {attrs, Keyword.keys(attrs)}
-      end
-
-    case attrs do
-      [] -> {:ok, dsl_state}
-      attrs -> do_add_vector_search_action(dsl_state, attrs, default)
-    end
-  end
-
-  defbuilder do_add_vector_search_action(dsl_state, attrs, default) do
-    Ash.Resource.Builder.add_new_action(dsl_state, :read, :vector_search,
-      arguments: [
-        build_action_argument(:query, :string, allow_nil?: false),
-        build_action_argument(:targets, {:array, :atom},
-          constraints: [items: [one_of: Keyword.keys(attrs)]],
-          default: default
-        )
-      ],
-      preparations: [
-        build_preparation({AshAi.Preparations.VectorSearch, available_targets: attrs})
-      ]
-    )
   end
 
   defbuilder update_vectors_action(dsl_state) do

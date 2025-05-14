@@ -296,7 +296,15 @@ defmodule AshAi.Mcp.Server do
             {:json_response, Jason.encode!(response), session_id}
 
           tool ->
-            context = opts |> Keyword.take([:actor, :tenant, :context]) |> Map.new()
+            context =
+              opts
+              |> Keyword.take([:actor, :tenant, :context])
+              |> Map.new()
+              |> Map.update(
+                :context,
+                %{otp_app: opts[:otp_app]},
+                &Map.put(&1, :otp_app, opts[:otp_app])
+              )
 
             case tool.function.(tool_args, context) do
               {:ok, result, _} ->
@@ -350,8 +358,22 @@ defmodule AshAi.Mcp.Server do
   end
 
   defp tools(opts) do
+    opts =
+      if opts[:tools] == :ash_dev_tools do
+        opts
+        |> Keyword.put(:actions, [{AshAi.DevTools.Tools, :*}])
+        |> Keyword.put(:tools, [:list_ash_resources, :list_generators])
+      else
+        opts
+      end
+
     opts
-    |> Keyword.take([:otp_app, :tools, :actor, :context, :tenant])
+    |> Keyword.take([:otp_app, :tools, :actor, :context, :tenant, :actions])
+    |> Keyword.update(
+      :context,
+      %{otp_app: opts[:otp_app]},
+      &Map.put(&1, :otp_app, opts[:otp_app])
+    )
     |> AshAi.functions()
   end
 

@@ -88,6 +88,8 @@ end
 
 ## Vectorization
 
+See `AshPostgres` vector setup for required steps: https://hexdocs.pm/ash_postgres/AshPostgres.Extensions.Vector.html
+
 This extension creates a vector search action, and provides a few different strategies for how to
 update the embeddings when needed.
 
@@ -119,8 +121,8 @@ end
 If you are using policies, add a bypass to allow us to update the vector embeddings:
 
 ```elixir
-bypass AshAi.Checks.ActorIsAshAi do
-  authorize_if always()
+bypass action(:ash_ai_update_embeddings) do
+  authorize_if AshAi.Checks.ActorIsAshAi
 end
 ```
 
@@ -216,7 +218,7 @@ defmodule Tunez.OpenAIEmbeddingModel do
 
   @impl true
   def generate(texts, _opts) do
-    apikey = System.fetch_env!("OPEN_AI_API_KEY")
+    api_key = System.fetch_env!("OPEN_AI_API_KEY")
 
     headers = [
       {"Authorization", "Bearer #{api_key}"},
@@ -240,7 +242,7 @@ defmodule Tunez.OpenAIEmbeddingModel do
         |> Enum.map(fn %{"embedding" => embedding} -> embedding end)
         |> then(&{:ok, &1})
 
-      status ->
+      _status ->
         {:error, response.body}
     end
   end
@@ -285,12 +287,5 @@ defmodule MyApp.ChatBot do
     |> LLMChain.new!()
     |> AshAi.iex_chat(actor: actor, otp_app: :my_app)
   end
-end
-
-# it will use the exposed actions in your domains
-
-agents do
-  expose_resource MyApp.MyDomain.MyResource, [:list, :of, :actions]
-  expose_resource MyApp.MyDomain.MyResource2, [:list, :of, :actions]
 end
 ```
