@@ -1,6 +1,85 @@
 # Ash AI
 <img src="https://github.com/ash-project/ash_ai/blob/main/logos/ash_ai.png?raw=true" alt="Logo" width="300"/>
 
+## MCP Server
+
+Both the dev & production MCP servers can be installed with
+
+`mix ash_ai.gen.mcp`
+
+### Dev MCP Server
+
+To install the dev MCP server, add the `AshAi.Mcp.Dev` plug to your
+endpoint module, in the `code_reloading?` block.
+
+
+```elixir
+  if code_reloading? do
+    socket "/phoenix/live_reload/socket", Phoenix.LiveReloader.Socket
+
+    plug AshAi.Mcp.Dev,
+      # see the note below on protocol versions below
+      protocol_version_statement: "2024-11-05",
+      otp_app: :your_app
+```
+
+We are still experimenting to see what tools (if any) are useful while developing with agents.
+
+### Production MCP Server
+
+AshAi provides a pre-built MCP server that can be used to expose your tool definitions to an MCP client (typically some kind of IDE, or Claude Desktop for example).
+
+The protocol version we implement is 2025-03-26. As of this writing, many tools have not yet been updated to support this version. You will generally need to use some kind of proxy until tools have been updated accordingly. The only proxy that is known to support the latest protocol verison is https://www.npmjs.com/package/mcp-remote.
+
+However, there is a bug that requires us to "claim" that we are using an old protocol version: https://github.com/geelen/mcp-remote/issues/66. See the installation snippet below for more.
+
+#### Roadmap
+
+- Implement OAuth2 flow with AshAuthentication (long term)
+- Implement support for more than just tools, i.e resources etc.
+- Implement sessions, and provide a session id context to tools (this code is just commented out, and can be uncommented, just needs timeout logic for inactive sesions)
+
+#### Installation
+
+##### Authentication
+
+We don't currently support the OAuth2 flow out of the box with AshAi, but the goal is to eventually support this with AshAuthentication. You can always implement that yourself, but the quikest way to value is to use the new `api_key` strategy.
+
+Use `mix ash_authentication.add_strategy api_key` to install it if you haven't already.
+
+Then, create a separate pipeline for `:mcp`, and add the api key plug to it:
+
+```elixir
+pipeline :mcp do
+  plug AshAuthentication.Strategy.ApiKey.Plug,
+    resource: YourApp.Accounts.User,
+    # Use `required?: false` to allow unauthenticated
+    # users to connect, for example if some tools
+    # are publicly accessible.
+    required?: false
+end
+```
+
+##### Add the MCP server to your router
+
+```elixir
+scope "/mcp" do
+  pipe_through :mcp
+
+  forward "/", AshAi.Mcp.Router,
+    tools: [
+      :list,
+      :of,
+      :tools
+    ],
+    # If using mcp-remote, and this issue is not fixed yet: https://github.com/geelen/mcp-remote/issues/66
+    # You will need to set the `protocol_version_statement` to the
+    # older version.
+    protocol_version_statement: "2024-11-05",
+    otp_app: :my_app
+end
+```
+
 ## `mix ash_ai.gen.chat`
 
 This is a new and experimental tool to generate a chat feature for your Ash & Phoenix application. It is backed by `ash_oban` and `ash_postgres`, using `pub_sub` to stream messages to the client. This is primarily a tool to get started with chat features and is by no means intended to handle every case you can come up with.
