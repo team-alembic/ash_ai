@@ -5,6 +5,21 @@ See [Conventional Commits](Https://conventionalcommits.org) for commit guideline
 
 <!-- changelog -->
 
+## [v0.1.1](https://github.com/ash-project/ash_ai/compare/v0.1.0...v0.1.1) (2025-05-14)
+
+
+
+
+### Bug Fixes:
+
+* more fixes for gen.chat message order
+
+* properly generate chat message log
+
+### Improvements:
+
+* fix update pre_flight permission request for tools
+
 ## [v0.1.0](https://github.com/ash-project/ash_ai/compare/v0.1.0...v0.1.0) (2025-05-14)
 
 
