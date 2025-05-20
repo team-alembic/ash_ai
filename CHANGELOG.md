@@ -5,6 +5,21 @@ See [Conventional Commits](Https://conventionalcommits.org) for commit guideline
 
 <!-- changelog -->
 
+## [v0.1.2](https://github.com/ash-project/ash_ai/compare/v0.1.1...v0.1.2) (2025-05-20)
+
+
+
+
+### Bug Fixes:
+
+* improve chat ui heex template
+
+* don't reply to the initialized notification (#35)
+
+### Improvements:
+
+* update chat heex template. (#33)
+
 ## [v0.1.1](https://github.com/ash-project/ash_ai/compare/v0.1.0...v0.1.1) (2025-05-14)
 
 
