@@ -8,8 +8,8 @@ defmodule AshAi.DevTools.Tools do
       subtype_of: :map,
       constraints: [
         fields: [
-          command: [type: :string, allow_nil?: false, doc: "The command to run"],
-          docs: [type: :string, allow_nil?: false, doc: "The documentation for the task"]
+          command: [type: :string, allow_nil?: false, description: "The command to run"],
+          docs: [type: :string, allow_nil?: false, description: "The documentation for the task"]
         ]
       ]
   end
@@ -24,7 +24,7 @@ defmodule AshAi.DevTools.Tools do
           domain: [
             type: :string,
             allow_nil?: false,
-            doc: "The name of the resource's domain module"
+            description: "The name of the resource's domain module"
           ]
         ]
       ]
