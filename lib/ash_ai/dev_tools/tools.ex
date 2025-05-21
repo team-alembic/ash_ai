@@ -30,6 +30,22 @@ defmodule AshAi.DevTools.Tools do
       ]
   end
 
+  defmodule PackageRules do
+    @moduledoc false
+    use Ash.Type.NewType,
+      subtype_of: :map,
+      constraints: [
+        fields: [
+          package: [type: :string, allow_nil?: false, description: "The name of the package"],
+          rules: [
+            type: :string,
+            allow_nil?: false,
+            description: "The contents of the package's rules file"
+          ]
+        ]
+      ]
+  end
+
   actions do
     action :list_ash_resources, {:array, Resource} do
       description """
@@ -47,15 +63,53 @@ defmodule AshAi.DevTools.Tools do
       end
     end
 
+    action :get_package_rules, {:array, PackageRules} do
+      description """
+      Lists the rules for the provided packages.
+      Use this to discover how packages are intended to be used.
+      Not all packages have rules, but when they do they are stored in a `usage-rules.md` file.
+      """
+
+      argument :packages, {:array, :string} do
+        allow_nil? false
+        description "The packages to get rules for"
+      end
+
+      run fn input, _ ->
+        Mix.Project.deps_paths()
+        |> Enum.filter(fn {name, path} ->
+          to_string(name) in input.arguments.packages
+        end)
+        |> Enum.flat_map(fn {name, path} ->
+          path
+          |> Path.join("usage-rules.md")
+          |> File.exists?()
+          |> case do
+            true ->
+              [
+                %{
+                  package: name,
+                  rules: File.read!(Path.join(path, "usage-rules.md"))
+                }
+              ]
+
+            false ->
+              []
+          end
+        end)
+        |> then(&{:ok, &1})
+      end
+    end
+
     action :list_generators, {:array, Task} do
       description """
       Lists available igniter generators. Run with `mix <task_name>`. Pass `--dry-run` to see what the effects will be. Always pass `--yes` when running to accept changes automatically
       """
 
       run fn input, _ ->
-        Mix.Task.all_modules()
+        Mix.Task.load_all()
         |> Enum.filter(fn module ->
-          function_exported?(module, :igniter, 1)
+          Code.ensure_loaded?(module) && function_exported?(module, :igniter, 1)
         end)
         |> Enum.map(fn module ->
           %{docs: Mix.Task.moduledoc(module), command: Mix.Task.task_name(module)}

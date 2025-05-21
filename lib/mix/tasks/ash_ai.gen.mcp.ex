@@ -102,7 +102,8 @@ if Code.ensure_loaded?(Igniter) do
       end
     end
 
-    defp add_plug_to_endpoint(igniter, endpoint, otp_app) do
+    @doc false
+    def add_plug_to_endpoint(igniter, endpoint, otp_app) do
       Igniter.Project.Module.find_and_update_module!(igniter, endpoint, fn zipper ->
         with {:ok, zipper} <- Igniter.Code.Common.move_to(zipper, &code_reloading?/1),
              {:ok, zipper} <- Igniter.Code.Common.move_to_do_block(zipper) do

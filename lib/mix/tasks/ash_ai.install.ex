@@ -34,6 +34,9 @@ if Code.ensure_loaded?(Igniter) do
     def info(_argv, _composing_task) do
       %Igniter.Mix.Task.Info{
         group: :ash,
+        schema: [
+          yes: :boolean
+        ],
         example: __MODULE__.Docs.example()
       }
     end
@@ -42,6 +45,52 @@ if Code.ensure_loaded?(Igniter) do
     def igniter(igniter) do
       igniter
       |> Igniter.Project.Formatter.import_dep(:ash_ai)
+      |> add_dev_mcp()
+    end
+
+    defp add_dev_mcp(igniter) do
+      otp_app = Igniter.Project.Application.app_name(igniter)
+
+      if igniter.args.options[:yes] do
+        {igniter, routers} = Igniter.Libs.Phoenix.list_routers(igniter)
+        router = Enum.at(routers, 0)
+
+        if router do
+          {igniter, endpoints} = Igniter.Libs.Phoenix.endpoints_for_router(igniter, router)
+          endpoint = Enum.at(endpoints, 0)
+
+          if endpoint do
+            Mix.Tasks.AshAi.Gen.Mcp.add_plug_to_endpoint(igniter, endpoint, otp_app)
+          else
+            igniter
+          end
+        else
+          igniter
+        end
+      else
+        {igniter, router} =
+          Igniter.Libs.Phoenix.select_router(
+            igniter,
+            "Which router's endpoint should we instal the dev MCP in?"
+          )
+
+        if router do
+          {igniter, endpoint} =
+            Igniter.Libs.Phoenix.select_endpoint(
+              igniter,
+              router,
+              "Which endpoint should we install the dev MCP in?"
+            )
+
+          if endpoint do
+            Mix.Tasks.AshAi.Gen.Mcp.add_plug_to_endpoint(igniter, endpoint, otp_app)
+          else
+            igniter
+          end
+        else
+          igniter
+        end
+      end
     end
   end
 else
