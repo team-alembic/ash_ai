@@ -5,6 +5,19 @@ See [Conventional Commits](Https://conventionalcommits.org) for commit guideline
 
 <!-- changelog -->
 
+## [v0.1.5](https://github.com/ash-project/ash_ai/compare/v0.1.4...v0.1.5) (2025-05-21)
+
+
+
+
+### Bug Fixes:
+
+* properly display generators, add new usage-rules.md dev tool
+
+### Improvements:
+
+* add `ash_ai.gen.package_rules` task to create a rules file
+
 ## [v0.1.4](https://github.com/ash-project/ash_ai/compare/v0.1.3...v0.1.4) (2025-05-20)
 
 
