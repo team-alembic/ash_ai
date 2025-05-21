@@ -1,4 +1,4 @@
-defmodule Mix.Tasks.AshAi.Gen.PackageRules.Docs do
+defmodule Mix.Tasks.AshAi.Gen.UsageRules.Docs do
   @moduledoc false
 
   @spec short_doc() :: String.t()
@@ -26,7 +26,7 @@ defmodule Mix.Tasks.AshAi.Gen.PackageRules.Docs do
 end
 
 if Code.ensure_loaded?(Igniter) do
-  defmodule Mix.Tasks.AshAi.Gen.PackageRules do
+  defmodule Mix.Tasks.AshAi.Gen.UsageRules do
     @shortdoc "#{__MODULE__.Docs.short_doc()}"
 
     @moduledoc __MODULE__.Docs.long_doc()
@@ -49,45 +49,73 @@ if Code.ensure_loaded?(Igniter) do
 
     @impl Igniter.Mix.Task
     def igniter(igniter) do
-      contents =
+      packages =
         Mix.Project.deps_paths()
         |> Enum.filter(fn {name, _path} ->
           to_string(name) in igniter.args.positional.packages
         end)
-        |> Enum.map_join("\n", fn {name, path} ->
+        |> Enum.flat_map(fn {name, path} ->
           path
           |> Path.join("usage-rules.md")
           |> File.exists?()
           |> case do
             true ->
-              "## #{name} usage\n" <>
-                File.read!(Path.join(path, "usage-rules.md"))
+              [
+                {name,
+                 "<-- #{name}-start -->\n" <>
+                   "## #{name} usage\n" <>
+                   File.read!(Path.join(path, "usage-rules.md")) <>
+                   "\n<-- #{name}-end -->"}
+              ]
 
             false ->
               []
           end
         end)
-        |> then(fn contents ->
-          "<-- package-rules-start -->\n" <> contents <> "<-- package-rules-end -->\n"
-        end)
+
+      contents =
+        "<-- package-rules-start -->\n" <>
+          Enum.map_join(packages, "\n", &elem(&1, 1)) <> "\n<-- package-rules-end -->"
 
       Igniter.create_or_update_file(
         igniter,
         igniter.args.positional.file,
         contents,
         fn source ->
-          current_file = Rewrite.Source.get(source, :content)
+          current_contents = Rewrite.Source.get(source, :content)
 
           new_content =
-            case String.split(current_file, [
-                   "<-- package-rules-start -->",
-                   "<-- package-rules-end -->"
+            case String.split(current_contents, [
+                   "<-- package-rules-start -->\n",
+                   "\n<-- package-rules-end -->"
                  ]) do
-              [prelude, _, postlude] ->
-                prelude <> contents <> postlude
+              [prelude, current_packages_contents, postlude] ->
+                Enum.reduce(packages, current_packages_contents, fn {name, package_contents},
+                                                                    acc ->
+                  case String.split(acc, [
+                         "<-- #{name}-start -->\n",
+                         "\n<-- #{name}-end -->"
+                       ]) do
+                    [prelude, _, postlude] ->
+                      prelude <> package_contents <> postlude
 
-              [prelude] ->
-                prelude <> contents
+                    _ ->
+                      acc <> "\n" <> package_contents
+                  end
+                end)
+                |> then(fn content ->
+                  prelude <>
+                    "<-- package-rules-start -->\n" <>
+                    content <>
+                    "\n<-- package-rules-end -->\n" <>
+                    postlude
+                end)
+
+              _ ->
+                current_contents <>
+                  "\n<-- package-rules-start -->\n" <>
+                  contents <>
+                  "\n<-- package-rules-end -->\n"
             end
 
           Rewrite.Source.update(source, :content, new_content)
@@ -96,7 +124,7 @@ if Code.ensure_loaded?(Igniter) do
     end
   end
 else
-  defmodule Mix.Tasks.AshAi.Gen.PackageRules do
+  defmodule Mix.Tasks.AshAi.Gen.UsageRules do
     @shortdoc "#{__MODULE__.Docs.short_doc()} | Install `igniter` to use"
 
     @moduledoc __MODULE__.Docs.long_doc()
