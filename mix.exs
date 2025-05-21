@@ -5,7 +5,7 @@ defmodule AshAi.MixProject do
   Integrated LLM features for your Ash application.
   """
 
-  @version "0.1.5"
+  @version "0.1.6"
 
   @source_url "https://github.com/ash-project/ash_ai"
 
