@@ -1,7 +1,7 @@
 # Ash AI
 <img src="https://github.com/ash-project/ash_ai/blob/main/logos/ash_ai.png?raw=true" alt="Logo" width="300"/>
 
-## MCP Server
+## MCP (Model Context Protocol) Server
 
 Both the dev & production MCP servers can be installed with
 

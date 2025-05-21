@@ -129,7 +129,7 @@ defmodule AshAi.MixProject do
       name: :ash_ai,
       licenses: ["MIT"],
       maintainers: "Zach Daniel",
-      files: ~w(lib .formatter.exs mix.exs README* LICENSE*
+      files: ~w(lib .formatter.exs mix.exs README* LICENSE* usage-rules.md
       CHANGELOG* documentation),
       links: %{
         "GitHub" => @source_url,
