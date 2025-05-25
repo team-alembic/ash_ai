@@ -37,6 +37,9 @@ if Code.ensure_loaded?(Igniter) do
         schema: [
           yes: :boolean
         ],
+        installs: [
+          usage_rules: "~> 0.1"
+        ],
         example: __MODULE__.Docs.example()
       }
     end

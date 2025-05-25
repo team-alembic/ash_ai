@@ -1,36 +1,14 @@
 defmodule Mix.Tasks.AshAi.Gen.UsageRules.Docs do
   @moduledoc false
 
-  @spec short_doc() :: String.t()
-  def short_doc do
-    "Combine the package rules for the provided packages into the provided file."
-  end
-
   @spec example() :: String.t()
   def example do
     "mix ash_ai.gen.package_rules rules.md ash ash_postgres phoenix"
-  end
-
-  @spec long_doc() :: String.t()
-  def long_doc do
-    """
-    #{short_doc()}
-
-    ## Example
-
-    ```sh
-    #{example()}
-    ```
-    """
   end
 end
 
 if Code.ensure_loaded?(Igniter) do
   defmodule Mix.Tasks.AshAi.Gen.UsageRules do
-    @shortdoc "#{__MODULE__.Docs.short_doc()}"
-
-    @moduledoc __MODULE__.Docs.long_doc()
-
     use Igniter.Mix.Task
 
     @impl Igniter.Mix.Task
@@ -121,14 +99,13 @@ if Code.ensure_loaded?(Igniter) do
           Rewrite.Source.update(source, :content, new_content)
         end
       )
+      |> Igniter.add_warning(
+        "Deprecated: use `mix usage_rules.sync` instead of `ash_ai.gen.usage_rules`"
+      )
     end
   end
 else
   defmodule Mix.Tasks.AshAi.Gen.UsageRules do
-    @shortdoc "#{__MODULE__.Docs.short_doc()} | Install `igniter` to use"
-
-    @moduledoc __MODULE__.Docs.long_doc()
-
     use Mix.Task
 
     @impl Mix.Task
