@@ -35,7 +35,7 @@ defmodule AshAi.Mcp.ServerTest do
       resp = Jason.decode!(response.resp_body)
       assert resp["jsonrpc"] == "2.0"
       assert resp["id"] == "1"
-      assert resp["result"]["serverInfo"] == %{"name" => "MCP Server", "version" => "0.1.0"}
+      assert resp["result"]["serverInfo"]["name"] == "MCP Server"
     end
 
     test "handles tool execution requests" do

@@ -197,7 +197,7 @@ if Code.ensure_loaded?(Igniter) do
           messages =
             #{inspect(message)}
             |> Ash.Query.filter(conversation_id == ^conversation.id)
-            |> Ash.Query.limit(3)
+            |> Ash.Query.limit(10)
             |> Ash.Query.select([:text, :source])
             |> Ash.Query.sort(inserted_at: :desc)
             |> Ash.read!()
@@ -261,7 +261,10 @@ if Code.ensure_loaded?(Igniter) do
       source = Module.concat([message, Types, Source])
 
       igniter
-      |> Igniter.compose_task("ash.gen.enum", [inspect(source), "agent,user"])
+      |> Igniter.compose_task("ash.gen.enum", [
+        inspect(source),
+        "agent,user,tool_result"
+      ])
       |> Igniter.compose_task(
         "ash.gen.resource",
         [
@@ -288,6 +291,12 @@ if Code.ensure_loaded?(Igniter) do
         public? true
         allow_nil? false
       end
+      """)
+      |> Ash.Resource.Igniter.add_new_attribute(message, :tool_calls, """
+      attribute :tool_calls, {:array, :map}
+      """)
+      |> Ash.Resource.Igniter.add_new_attribute(message, :tool_results, """
+      attribute :tool_results, {:array, :map}
       """)
       |> Ash.Resource.Igniter.add_new_attribute(message, :source, """
       attribute :source, #{inspect(source)} do
@@ -337,7 +346,7 @@ if Code.ensure_loaded?(Igniter) do
         argument :conversation_id, :uuid, allow_nil?: false
 
         prepare build(default_sort: [inserted_at: :desc])
-        filter expr(conversation_id == ^arg(:conversation_id))
+        filter expr(conversation_id == ^arg(:conversation_id) and source in [:agent, :user])
       end
       """)
       |> Ash.Resource.Igniter.add_new_action(message, :create, """
@@ -365,8 +374,8 @@ if Code.ensure_loaded?(Igniter) do
         accept [:id, :response_to_id, :conversation_id]
         argument :complete, :boolean, default: false
         argument :text, :string, allow_nil?: false, constraints: [trim?: false, allow_empty?: true]
-
-        validate argument_does_not_equal(:text, "")
+        argument :tool_calls, {:array, :map}
+        argument :tool_results, {:array, :map}
 
         # if updating
         #   if complete, set the text to the provided text
@@ -379,10 +388,50 @@ if Code.ensure_loaded?(Igniter) do
           end
         )})
 
+      change atomic_update(
+                :tool_calls,
+                {:atomic,
+                expr(
+                  if not is_nil(^arg(:tool_calls)) do
+                    fragment(
+                      "? || ?",
+                      ^atomic_ref(:tool_calls),
+                      type(
+                        ^arg(:tool_calls),
+                        {:array, :map}
+                      )
+                    )
+                  else
+                    ^atomic_ref(:tool_calls)
+                  end
+                )}
+              )
+
+      change atomic_update(
+                :tool_results,
+                {:atomic,
+                expr(
+                  if not is_nil(^arg(:tool_results)) do
+                    fragment(
+                      "? || ?",
+                      ^atomic_ref(:tool_results),
+                      type(
+                        ^arg(:tool_results),
+                        {:array, :map}
+                      )
+                    )
+                  else
+                    ^atomic_ref(:tool_results)
+                  end
+                )}
+              )
+
         # if creating, set the text attribute to the provided text
         change set_attribute(:text, arg(:text))
         change set_attribute(:complete, arg(:complete))
         change set_attribute(:source, :agent)
+        change set_attribute(:tool_results, arg(:tool_results))
+        change set_attribute(:tool_calls, arg(:tool_calls))
 
         # on update, only set complete to its new value
         upsert_fields [:complete]
@@ -409,8 +458,7 @@ if Code.ensure_loaded?(Igniter) do
             #{inspect(message)}
             |> Ash.Query.filter(conversation_id == ^message.conversation_id)
             |> Ash.Query.filter(id != ^message.id)
-            |> Ash.Query.limit(10)
-            |> Ash.Query.select([:text, :source])
+            |> Ash.Query.select([:text, :source, :tool_calls, :tool_results])
             |> Ash.Query.sort(inserted_at: :desc)
             |> Ash.read!()
             |> Enum.concat([%{source: :user, text: message.text}])
@@ -418,16 +466,10 @@ if Code.ensure_loaded?(Igniter) do
           system_prompt =
             LangChain.Message.new_system!(\"""
             You are a helpful chat bot.
+            Your job is to use the tools at your disposal to assist the user.
             \""")
 
-          message_chain =
-            Enum.map(messages, fn message ->
-              if message.source == :agent do
-                LangChain.Message.new_assistant!(message.text)
-              else
-                LangChain.Message.new_user!(message.text)
-              end
-            end)
+          message_chain = message_chain(messages)
 
           new_message_id = Ash.UUID.generate()
 
@@ -454,15 +496,41 @@ if Code.ensure_loaded?(Igniter) do
               end
             end,
             on_message_processed: fn _chain, data ->
-              if data.content && data.content != "" do
+              if (data.tool_calls && Enum.any?(data.tool_calls)) ||
+                   (data.tool_results && Enum.any?(data.tool_results)) ||
+                   data.content not in [nil, ""] do
                 #{inspect(message)}
-                |> Ash.Changeset.for_create(:upsert_response, %{
-                  id: new_message_id,
-                  response_to_id: message.id,
-                  conversation_id: message.conversation_id,
-                  text: data.content,
-                  complete: true
-                }, actor: %AshAi{})
+                |> Ash.Changeset.for_create(
+                  :upsert_response,
+                  %{
+                    id: new_message_id,
+                    response_to_id: message.id,
+                    conversation_id: message.conversation_id,
+                    complete: true,
+                    tool_calls:
+                      data.tool_calls &&
+                        Enum.map(
+                          data.tool_calls,
+                          &Map.take(&1, [:status, :type, :call_id, :name, :arguments, :index])
+                        ),
+                    tool_results:
+                      data.tool_results &&
+                        Enum.map(
+                          data.tool_results,
+                          &Map.take(&1, [
+                            :type,
+                            :tool_call_id,
+                            :name,
+                            :content,
+                            :display_text,
+                            :is_error,
+                            :options
+                          ])
+                        ),
+                    text: data.content || ""
+                  },
+                  actor: %AshAi{}
+                )
                 |> Ash.create!()
               end
             end
@@ -470,6 +538,52 @@ if Code.ensure_loaded?(Igniter) do
           |> LLMChain.run(mode: :while_needs_response)
 
           changeset
+        end)
+      end
+
+      defp message_chain(messages) do
+        Enum.flat_map(messages, fn
+          %{source: :agent} = message ->
+            langchain_message =
+              LangChain.Message.new_assistant!(%{
+                content: message.text,
+                tool_calls:
+                  message.tool_calls &&
+                    Enum.map(
+                      message.tool_calls,
+                      &LangChain.Message.ToolCall.new!(
+                        Map.take(&1, ["status", "type", "call_id", "name", "arguments", "index"])
+                      )
+                    )
+              })
+
+            if message.tool_results && !Enum.empty?(message.tool_results) do
+              [
+                langchain_message,
+                LangChain.Message.new_tool_result!(%{
+                  tool_results:
+                    Enum.map(
+                      message.tool_results,
+                      &LangChain.Message.ToolResult.new!(
+                        Map.take(&1, [
+                          "type",
+                          "tool_call_id",
+                          "name",
+                          "content",
+                          "display_text",
+                          "is_error",
+                          "options"
+                        ])
+                      )
+                    )
+                })
+              ]
+            else
+              [langchain_message]
+            end
+
+          %{source: :user, text: text} ->
+            [LangChain.Message.new_user!(text)]
         end)
       end
       """)

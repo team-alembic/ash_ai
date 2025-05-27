@@ -9,6 +9,7 @@ end
 
 if Code.ensure_loaded?(Igniter) do
   defmodule Mix.Tasks.AshAi.Gen.UsageRules do
+    @moduledoc false
     use Igniter.Mix.Task
 
     @impl Igniter.Mix.Task
@@ -106,6 +107,7 @@ if Code.ensure_loaded?(Igniter) do
   end
 else
   defmodule Mix.Tasks.AshAi.Gen.UsageRules do
+    @moduledoc false
     use Mix.Task
 
     @impl Mix.Task
