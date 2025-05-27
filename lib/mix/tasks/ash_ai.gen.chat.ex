@@ -346,7 +346,7 @@ if Code.ensure_loaded?(Igniter) do
         argument :conversation_id, :uuid, allow_nil?: false
 
         prepare build(default_sort: [inserted_at: :desc])
-        filter expr(conversation_id == ^arg(:conversation_id) and source in [:agent, :user])
+        filter expr(conversation_id == ^arg(:conversation_id))
       end
       """)
       |> Ash.Resource.Igniter.add_new_action(message, :create, """
