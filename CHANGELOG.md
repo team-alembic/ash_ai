@@ -5,6 +5,15 @@ See [Conventional Commits](Https://conventionalcommits.org) for commit guideline
 
 <!-- changelog -->
 
+## [v0.1.9](https://github.com/ash-project/ash_ai/compare/v0.1.8...v0.1.9) (2025-05-27)
+
+
+
+
+### Bug Fixes:
+
+* remove unnecessary source type from generated chat code
+
 ## [v0.1.8](https://github.com/ash-project/ash_ai/compare/v0.1.7...v0.1.8) (2025-05-27)
 
 
