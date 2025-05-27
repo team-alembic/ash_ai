@@ -5,6 +5,17 @@ See [Conventional Commits](Https://conventionalcommits.org) for commit guideline
 
 <!-- changelog -->
 
+## [v0.1.8](https://github.com/ash-project/ash_ai/compare/v0.1.7...v0.1.8) (2025-05-27)
+
+
+
+
+### Improvements:
+
+* overhaul ash_ai.gen.chat to store tool calls
+
+* make the dev mcp path configurable (#38)
+
 ## [v0.1.7](https://github.com/ash-project/ash_ai/compare/v0.1.6...v0.1.7) (2025-05-21)
 
 
