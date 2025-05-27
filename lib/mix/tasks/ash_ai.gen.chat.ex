@@ -263,7 +263,7 @@ if Code.ensure_loaded?(Igniter) do
       igniter
       |> Igniter.compose_task("ash.gen.enum", [
         inspect(source),
-        "agent,user,tool_result"
+        "agent,user"
       ])
       |> Igniter.compose_task(
         "ash.gen.resource",
