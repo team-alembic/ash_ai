@@ -10,7 +10,7 @@ Both the dev & production MCP servers can be installed with
 ### Dev MCP Server
 
 To install the dev MCP server, add the `AshAi.Mcp.Dev` plug to your
-endpoint module, in the `code_reloading?` block. By default the 
+endpoint module, in the `code_reloading?` block. By default the
 mcp server will be available under `http://localhost:4000/ash_ai/mcp`.
 
 
@@ -31,9 +31,9 @@ We are still experimenting to see what tools (if any) are useful while developin
 
 AshAi provides a pre-built MCP server that can be used to expose your tool definitions to an MCP client (typically some kind of IDE, or Claude Desktop for example).
 
-The protocol version we implement is 2025-03-26. As of this writing, many tools have not yet been updated to support this version. You will generally need to use some kind of proxy until tools have been updated accordingly. The only proxy that is known to support the latest protocol verison is https://www.npmjs.com/package/mcp-remote.
+The protocol version we implement is 2025-03-26. As of this writing, many tools have not yet been updated to support this version. You will generally need to use some kind of proxy until tools have been updated accordingly. We suggest this one, provided by tidewave. https://github.com/tidewave-ai/mcp_proxy_rust#installation
 
-However, there is a bug that requires us to "claim" that we are using an old protocol version: https://github.com/geelen/mcp-remote/issues/66. See the installation snippet below for more.
+However, as of the writing of this guide, it requires setting a previous protocol version as noted above.
 
 #### Roadmap
 
