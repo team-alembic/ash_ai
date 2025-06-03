@@ -90,9 +90,7 @@ if Code.ensure_loaded?(Igniter) do
               # :tool1,
               # :tool2,
             ],
-            # If using mcp-remote, and this issue is not fixed yet: https://github.com/geelen/mcp-remote/issues/66
-            # You will need to set the `protocol_version_statement` to the
-            # older version.
+            # For many tools, you will need to set the `protocol_version_statement` to the older version.
             protocol_version_statement: "2024-11-05",
             otp_app: :#{otp_app}
           """,
@@ -112,9 +110,7 @@ if Code.ensure_loaded?(Igniter) do
              zipper,
              """
              plug AshAi.Mcp.Dev,
-               # If using mcp-remote, and this issue is not fixed yet: https://github.com/geelen/mcp-remote/issues/66
-               # You will need to set the `protocol_version_statement` to the
-               # older version.
+               # For many tools, you will need to set the `protocol_version_statement` to the older version.
                protocol_version_statement: "2024-11-05",
                otp_app: :#{otp_app},
                path: "/ash_ai/mcp"

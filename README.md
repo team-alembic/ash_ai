@@ -74,9 +74,7 @@ scope "/mcp" do
       :of,
       :tools
     ],
-    # If using mcp-remote, and this issue is not fixed yet: https://github.com/geelen/mcp-remote/issues/66
-    # You will need to set the `protocol_version_statement` to the
-    # older version.
+    # For many tools, you will need to set the `protocol_version_statement` to the older version.
     protocol_version_statement: "2024-11-05",
     otp_app: :my_app
 end
