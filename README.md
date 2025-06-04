@@ -133,8 +133,6 @@ it will add those as tool calls to the agent.
 
 ## Prompt-backed actions
 
-Only tested against OpenAI.
-
 This allows defining an action, including input and output types, and delegating the
 implementation to an LLM. We use structured outputs to ensure that it always returns
 the correct data type. We also derive a default prompt from the action description and
@@ -160,10 +158,20 @@ action :analyze_sentiment, :atom do
     # alternatively you can restrict it to only a set of tools
     # tools: [:list, :of, :tool, :names]
     # provide an optional prompt, which is an EEx template
-     # prompt: "Analyze the sentiment of the following text: <%= @input.arguments.description %>"
+     # prompt: "Analyze the sentiment of the following text: <%= @input.arguments.description %>",
+    # adapter: {Adapter, [some: :opt]}
   )
 end
 ```
+
+## Adapters
+
+Adapters are used to determine how a given LLM fulfills a prompt-backed action. The adapter is guessed automatically from the model where possible.
+See `AshAi.Actions.Prompt.Adapter` for more information.
+
+### Setting up LangChain
+
+For any langchain models you use, you will need to configure them. See https://hexdocs.pm/langchain/ for more information.
 
 ## Vectorization
 

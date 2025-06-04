@@ -1,23 +1,27 @@
 defmodule AshAi.Actions.Prompt do
-  @prompt_template """
-  You are responsible for performing the `<%= @input.action.name %>` action.
+  @prompt_template {"""
+                    You are responsible for performing the `<%= @input.action.name %>` action.
 
-  <%= if @input.action.description do %>
-  # Description
-  <%= @input.action.description %>
-  <% end %>
-  <%= for argument <- @input.action.arguments,
-      {:ok, value} = Ash.ActionInput.fetch_argument(@input, argument.name),
-      {:ok, value} = Ash.Type.dump_to_embedded(argument.type, value, argument.constraints) do %>
-  ## <%= argument.name %>
-  <%= if argument.description do %>
-  ### Description
-  <%= argument.description %>
-  <% end %>
-  ### Value
-  <%= Jason.encode!(value) %>
-  <% end %>
-  """
+                    <%= if @input.action.description do %>
+                    # Description
+                    <%= @input.action.description %>
+                    <% end %>
+
+                    ## Inputs
+                    <%= for argument <- @input.action.arguments do %>
+                    - <%= argument.name %><%= if argument.description do %>: <%= argument.description %>
+                    <% end %>
+                    <% end %>
+                    """,
+                    """
+                    # Action Inputs
+
+                    <%= for argument <- @input.action.arguments,
+                        {:ok, value} = Ash.ActionInput.fetch_argument(@input, argument.name),
+                        {:ok, value} = Ash.Type.dump_to_embedded(argument.type, value, argument.constraints) do %>
+                      - <%= argument.name %>: <%= Jason.encode!(value) %>
+                    <% end %>
+                    """}
   @moduledoc """
   A generic action impl that returns structured outputs from an LLM matching the action return.
 
@@ -64,6 +68,9 @@ defmodule AshAi.Actions.Prompt do
   The prompt by default is generated using the action and input descriptions. You can provide your own prompt
   via the `prompt` option which will be able to reference `@input` and `@context`.
 
+  The prompt can be a string or a tuple of two strings. The first string is the system prompt and the second string is the user message.
+  If no user message is provided, the user message will be "perform the action". Both are treated as EEx templates.
+
   We have found that the "3rd party" style description writing paired with the format we provide by default to be
   a good basis point for LLMs who are meant to accomplish a task. With this in mind, for refining your prompt,
   first try describing via the action description that desired outcome or operating basis of the action, as well
@@ -77,143 +84,136 @@ defmodule AshAi.Actions.Prompt do
   The default prompt template is:
 
   ```elixir
-  \"""
-  #{@prompt_template}
-  \"""
+  #{inspect(@prompt_template, pretty: true)}
   ```
   """
   use Ash.Resource.Actions.Implementation
 
-  alias LangChain.Chains.LLMChain
-  alias LangChain.Message
+  def run(input, opts, context) do
+    llm = get_llm(opts, input, context)
+    json_schema = get_json_schema(input)
+    {adapter, adapter_opts} = get_adapter(opts, llm)
+    {system_prompt, user_message} = get_prompts(input, opts, context)
+    tools = get_tools(opts, input, context)
+
+    data = %AshAi.Actions.Prompt.Adapter.Data{
+      llm: llm,
+      input: input,
+      system_prompt: system_prompt,
+      user_message: user_message,
+      json_schema: json_schema,
+      tools: tools,
+      verbose?: opts[:verbose?] || false,
+      context: context
+    }
+
+    adapter.run(data, adapter_opts)
+  end
+
+  defp get_tools(opts, input, context) do
+    case opts[:tools] do
+      nil ->
+        []
+
+      true ->
+        otp_app =
+          Spark.otp_app(input.domain) ||
+            Spark.otp_app(input.resource) ||
+            raise "otp_app must be configured on the domain or the resource to get access to all tools"
+
+        AshAi.functions(
+          otp_app: otp_app,
+          exclude_actions: [{input.resource, input.action.name}],
+          actor: context.actor,
+          tenant: context.tenant
+        )
+
+      tools ->
+        otp_app =
+          Spark.otp_app(input.domain) ||
+            Spark.otp_app(input.resource) ||
+            raise "otp_app must be configured on the domain or the resource to get access to all tools"
+
+        AshAi.functions(
+          tools: List.wrap(tools),
+          otp_app: otp_app,
+          exclude_actions: [{input.resource, input.action.name}],
+          actor: context.actor,
+          tenant: context.tenant
+        )
+    end
+  end
+
+  defp get_llm(opts, input, context) do
+    case opts[:llm] do
+      function when is_function(function) ->
+        function.(input, context)
+
+      llm ->
+        llm
+    end
+  end
+
+  defp get_json_schema(input) do
+    if input.action.returns do
+      schema =
+        AshJsonApi.OpenApi.resource_write_attribute_type(
+          %{name: :result, type: input.action.returns, constraints: input.action.constraints},
+          nil,
+          :create
+        )
+
+      if input.action.allow_nil? do
+        %{"anyOf" => [%{"type" => "null"}, schema]}
+      else
+        schema
+      end
+    else
+      %{"type" => "null"}
+    end
+    |> Jason.encode!()
+    |> Jason.decode!()
+  end
+
+  defp get_adapter(opts, llm) do
+    adapter =
+      opts[:adapter] ||
+        case llm do
+          %LangChain.ChatModels.ChatOpenAI{} ->
+            AshAi.Actions.Prompt.Adapter.StructuredOutput
+
+          %LangChain.ChatModels.ChatAnthropic{} ->
+            AshAi.Actions.Prompt.Adapter.CompletionTool
+
+          _ ->
+            raise """
+            No default adapter found for the given LLM.
+            Please provide an adapter or use a supported LLM.
+
+            #{inspect(llm)}
+            """
+        end
+
+    case adapter do
+      {adapter, adapter_opts} -> {adapter, adapter_opts}
+      adapter -> {adapter, []}
+    end
+  end
 
   # sobelow_skip ["RCE.EEx"]
-  def run(input, opts, context) do
-    llm =
-      case opts[:llm] do
-        function when is_function(function) ->
-          function.(input, context)
+  defp get_prompts(input, opts, context) do
+    case Keyword.get(opts, :prompt, @prompt_template) do
+      {prompt, user_message} ->
+        prompt = EEx.eval_string(prompt, assigns: [input: input, context: context])
 
-        llm ->
-          llm
-      end
+        user_message =
+          EEx.eval_string(user_message, assigns: [input: input, context: context])
 
-    if !Map.has_key?(llm, :json_schema) do
-      raise "Only LLMs that have the `json_schema` can currently be used to run actions"
-    end
+        {prompt, user_message}
 
-    json_schema =
-      if input.action.returns do
-        schema =
-          AshJsonApi.OpenApi.resource_write_attribute_type(
-            %{name: :result, type: input.action.returns, constraints: input.action.constraints},
-            nil,
-            :create
-          )
-
-        if input.action.allow_nil? do
-          %{"anyOf" => [%{"type" => "null"}, schema]}
-        else
-          schema
-        end
-      else
-        %{"type" => "null"}
-      end
-      |> Jason.encode!()
-      |> Jason.decode!()
-      |> then(fn schema ->
-        %{
-          "strict" => true,
-          "schema" => %{
-            "type" => "object",
-            "properties" => %{"result" => schema},
-            "required" => ["result"],
-            "additionalProperties" => false
-          },
-          "name" => "result"
-        }
-      end)
-
-    llm =
-      Map.merge(llm, %{json_schema: json_schema, json_response: true})
-
-    tools =
-      case opts[:tools] do
-        nil ->
-          []
-
-        true ->
-          otp_app =
-            Spark.otp_app(input.domain) ||
-              Spark.otp_app(input.resource) ||
-              raise "otp_app must be configured on the domain or the resource to get access to all tools"
-
-          AshAi.functions(
-            otp_app: otp_app,
-            exclude_actions: [{input.resource, input.action.name}],
-            actor: context.actor,
-            tenant: context.tenant
-          )
-
-        tools ->
-          otp_app =
-            Spark.otp_app(input.domain) ||
-              Spark.otp_app(input.resource) ||
-              raise "otp_app must be configured on the domain or the resource to get access to all tools"
-
-          AshAi.functions(
-            tools: List.wrap(tools),
-            otp_app: otp_app,
-            exclude_actions: [{input.resource, input.action.name}],
-            actor: context.actor,
-            tenant: context.tenant
-          )
-      end
-
-    prompt_template = Keyword.get(opts, :prompt, @prompt_template)
-
-    prompt = EEx.eval_string(prompt_template, assigns: [input: input, context: context])
-
-    messages = [
-      Message.new_system!(prompt),
-      Message.new_user!("Perform the action.")
-    ]
-
-    %{
-      llm: llm,
-      verbose: opts[:verbose?] || false,
-      custom_context: Map.new(Ash.Context.to_opts(context))
-    }
-    |> LLMChain.new!()
-    |> LLMChain.add_messages(messages)
-    |> LLMChain.add_tools(tools)
-    |> LLMChain.run(mode: :while_needs_response)
-    |> case do
-      {:ok,
-       %LangChain.Chains.LLMChain{
-         last_message: %{content: content}
-       }}
-      when is_binary(content) ->
-        if input.action.returns do
-          with {:ok, value} <-
-                 Ash.Type.cast_input(
-                   input.action.returns,
-                   Jason.decode!(content)["result"],
-                   input.action.constraints
-                 ),
-               {:ok, value} <-
-                 Ash.Type.apply_constraints(input.action.returns, value, input.action.constraints) do
-            {:ok, value}
-          else
-            _error ->
-              {:error, "Invalid LLM response"}
-          end
-        else
-          :ok
-        end
-
-      {:error, _, error} ->
-        {:error, error}
+      prompt ->
+        prompt = EEx.eval_string(prompt, assigns: [input: input, context: context])
+        {prompt, "Perform the action"}
     end
   end
 end
