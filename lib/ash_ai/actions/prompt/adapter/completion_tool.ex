@@ -88,7 +88,7 @@ defmodule AshAi.Actions.Prompt.Adapter.CompletionTool do
       {:ok, _chain, message} ->
         {:ok, message.processed_content}
 
-      {:error, error} ->
+      {:error, _chain, error} ->
         {:error, error}
     end
   end
