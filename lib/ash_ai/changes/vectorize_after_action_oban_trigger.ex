@@ -4,14 +4,19 @@ if Code.ensure_loaded?(AshOban) do
     use Ash.Resource.Change
 
     # TODO add bulk action callbacks here?
-    def change(changeset, module_opts, _context) do
+    def change(changeset, module_opts, context) do
       Ash.Changeset.after_action(changeset, fn
         changeset, record ->
           if changeset.action.name == :ash_ai_update_embeddings do
             {:ok, record}
           else
             if AshAi.has_vectorize_change?(changeset) do
-              %Oban.Job{} = AshOban.run_trigger(record, module_opts[:trigger_name])
+              %Oban.Job{} =
+                AshOban.run_trigger(
+                  record,
+                  module_opts[:trigger_name],
+                  Ash.Context.to_opts(context)
+                )
             end
 
             {:ok, record}
