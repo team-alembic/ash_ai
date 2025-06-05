@@ -387,6 +387,11 @@ end
 2. Run `iex -S mix` and then run `AshAi.iex_chat` to start chatting with your app.
 3. Build your own chat interface. See the implementation of `AshAi.iex_chat` to see how its done.
 
+## Contributing 
+
+1. make sure to run `mix test.create && mix test.migrate` to set up locally
+1. ensure that `mix check` passes
+
 ## Using AshAi.iex_chat
 
 ```elixir
