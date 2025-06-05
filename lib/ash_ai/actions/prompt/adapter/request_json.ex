@@ -1,4 +1,4 @@
-defmodule AshAi.Actions.Prompt.Adapter.RequestJsonTool do
+defmodule AshAi.Actions.Prompt.Adapter.RequestJson do
   @moduledoc """
   An adapter for prompt-backed actions that requests JSON output directly in the prompt.
 

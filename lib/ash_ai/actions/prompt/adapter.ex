@@ -11,7 +11,7 @@ defmodule AshAi.Actions.Prompt.Adapter do
 
   - `AshAi.Actions.Prompt.Adapter.StructuredOutput` - Use an LLM that is guaranteed to return the requested JSON Schema.
   - `AshAi.Actions.Prompt.Adapter.CompletionTool` - Use an LLM and run it until it calls a "completion" tool, up to `max_runs` times.
-  - `AshAi.Actions.Prompt.Adapter.RequestJsonTool` - Use an LLM and request that it responds with a specific JSON format, and attempt to parse it.
+  - `AshAi.Actions.Prompt.Adapter.RequestJson` - Use an LLM and request that it responds with a specific JSON format, and attempt to parse it.
 
   See the adapter's documentation for more.
 

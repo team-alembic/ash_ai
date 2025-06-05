@@ -200,7 +200,7 @@ defmodule AshAi.Actions.Prompt do
         case llm do
           %LangChain.ChatModels.ChatOpenAI{endpoint: endpoint}
           when endpoint != "https://api.openai.com" ->
-            AshAi.Actions.Prompt.Adapter.RequestJsonTool
+            AshAi.Actions.Prompt.Adapter.RequestJson
 
           %LangChain.ChatModels.ChatOpenAI{} ->
             AshAi.Actions.Prompt.Adapter.StructuredOutput
