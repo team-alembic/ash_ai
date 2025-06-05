@@ -10,7 +10,11 @@ defmodule AshAi.Actions.Prompt.Adapter.RequestJsonTool do
 
   - `:max_retries` - Maximum number of retry attempts for invalid JSON (default: 3)
   - `:json_format` - Format to request JSON in (:markdown, :xml) (default: :markdown)
-  - `:include_examples` - Whether to include example JSON in the prompt (default: true)
+  - `:include_examples` - Examples to include in prompt. Options:
+    - `true` - Generate examples using Ash.Type.generator (default)
+    - `false` - No examples
+    - `%{"result" => example_data}` - Use provided example data
+    - `[%{"result" => example1}, %{"result" => example2}]` - Multiple examples
   """
   @behaviour AshAi.Actions.Prompt.Adapter
 
@@ -141,18 +145,7 @@ defmodule AshAi.Actions.Prompt.Adapter.RequestJsonTool do
           """
       end
 
-    example_section =
-      if include_examples do
-        example = generate_example_for_schema(data.json_schema)
-
-        """
-
-        Example of a valid response:
-        #{format_example(example, format)}
-        """
-      else
-        ""
-      end
+    example_section = generate_example_section(data, include_examples, format)
 
     """
     #{data.system_prompt}
@@ -189,12 +182,72 @@ defmodule AshAi.Actions.Prompt.Adapter.RequestJsonTool do
     """
   end
 
-  defp generate_example_for_schema(schema) do
-    example_content = generate_example_value(schema)
+  defp generate_example_section(data, include_examples, format) do
+    case include_examples do
+      false ->
+        ""
 
-    %{
-      "result" => example_content
-    }
+      true ->
+        example = generate_enhanced_example(data)
+        format_example_section([example], format)
+
+      %{"result" => _} = user_example ->
+        format_example_section([user_example], format)
+
+      examples when is_list(examples) ->
+        format_example_section(examples, format)
+
+      _ ->
+        ""
+    end
+  end
+
+  defp format_example_section(examples, format) do
+    formatted_examples =
+      examples
+      |> Enum.with_index(1)
+      |> Enum.map_join("\n\n", fn {example, index} ->
+        case length(examples) do
+          1 -> format_example(example, format)
+          _ -> "Example #{index}:\n#{format_example(example, format)}"
+        end
+      end)
+
+    """
+
+    Example#{if length(examples) > 1, do: "s", else: ""} of valid response#{if length(examples) > 1, do: "s", else: ""}:
+    #{formatted_examples}
+    """
+  end
+
+  defp generate_enhanced_example(data) do
+    return_type = data.input.action.returns
+    constraints = data.input.action.constraints
+
+    generator =
+      try do
+        Ash.Type.generator(return_type, constraints)
+      rescue
+        _ -> nil
+      end
+
+    if generator do
+      # Generate a single example value using Enum.take
+      [generated_value] = Enum.take(generator, 1)
+
+      case Ash.Type.dump_to_embedded(return_type, generated_value, constraints) do
+        {:ok, dumped_value} ->
+          %{"result" => dumped_value}
+
+        {:error, _} ->
+          # Fallback to simple value if dumping fails
+          %{"result" => generated_value}
+      end
+    else
+      # Fallback to schema-based generation if type generator fails
+      example_content = generate_example_value(data.json_schema)
+      %{"result" => example_content}
+    end
   end
 
   defp generate_example_value(%{"type" => "object", "properties" => props}) do
