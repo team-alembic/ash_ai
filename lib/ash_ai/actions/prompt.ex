@@ -199,7 +199,7 @@ defmodule AshAi.Actions.Prompt do
       opts[:adapter] ||
         case llm do
           %LangChain.ChatModels.ChatOpenAI{endpoint: endpoint}
-          when endpoint != "https://api.openai.com" ->
+          when not is_nil(endpoint) and endpoint != "https://api.openai.com" ->
             AshAi.Actions.Prompt.Adapter.RequestJson
 
           %LangChain.ChatModels.ChatOpenAI{} ->
