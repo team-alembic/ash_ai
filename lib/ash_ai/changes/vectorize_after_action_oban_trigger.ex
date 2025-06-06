@@ -15,7 +15,7 @@ if Code.ensure_loaded?(AshOban) do
                 AshOban.run_trigger(
                   record,
                   module_opts[:trigger_name],
-                  Ash.Context.to_opts(context)
+                  Keyword.take(Ash.Context.to_opts(context), [:actor, :tenant])
                 )
             end
 
