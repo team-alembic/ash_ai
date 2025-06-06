@@ -198,12 +198,11 @@ defmodule AshAi.Actions.Prompt do
     adapter =
       opts[:adapter] ||
         case llm do
-          %LangChain.ChatModels.ChatOpenAI{endpoint: endpoint}
-          when not is_nil(endpoint) and endpoint != "https://api.openai.com" ->
-            AshAi.Actions.Prompt.Adapter.RequestJson
-
-          %LangChain.ChatModels.ChatOpenAI{} ->
+          %LangChain.ChatModels.ChatOpenAI{endpoint: "https://api.openai.com" <> _rest} ->
             AshAi.Actions.Prompt.Adapter.StructuredOutput
+
+          %LangChain.ChatModels.ChatOpenAI{endpoint: endpoint} when not is_nil(endpoint) ->
+            AshAi.Actions.Prompt.Adapter.RequestJson
 
           %LangChain.ChatModels.ChatAnthropic{} ->
             AshAi.Actions.Prompt.Adapter.CompletionTool
