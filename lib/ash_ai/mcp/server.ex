@@ -362,7 +362,12 @@ defmodule AshAi.Mcp.Server do
       if opts[:tools] == :ash_dev_tools do
         opts
         |> Keyword.put(:actions, [{AshAi.DevTools.Tools, :*}])
-        |> Keyword.put(:tools, [:list_ash_resources, :list_generators])
+        |> Keyword.put(:tools, [
+          :list_ash_resources,
+          :list_generators,
+          :get_usage_rules,
+          :list_packages_with_rules
+        ])
       else
         opts
       end

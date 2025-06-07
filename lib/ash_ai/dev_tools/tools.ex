@@ -63,43 +63,59 @@ defmodule AshAi.DevTools.Tools do
       end
     end
 
-    # action :get_package_rules, {:array, PackageRules} do
-    #   description """
-    #   Lists the rules for the provided packages.
-    #   Use this to discover how packages are intended to be used.
-    #   Not all packages have rules, but when they do they are stored in a `usage-rules.md` file.
-    #   """
+    action :get_usage_rules, {:array, UsageRules} do
+      description """
+      Lists the usage rules for the provided packages.
+      Use this to discover how packages are intended to be used.
+      Not all packages have rules, but when they do they are stored in a `usage-rules.md` file.
+      """
 
-    #   argument :packages, {:array, :string} do
-    #     allow_nil? false
-    #     description "The packages to get rules for"
-    #   end
+      argument :packages, {:array, :string} do
+        allow_nil? false
+        description "The packages to get usage rules for"
+      end
 
-    #   run fn input, _ ->
-    #     Mix.Project.deps_paths()
-    #     |> Enum.filter(fn {name, path} ->
-    #       to_string(name) in input.arguments.packages
-    #     end)
-    #     |> Enum.flat_map(fn {name, path} ->
-    #       path
-    #       |> Path.join("usage-rules.md")
-    #       |> File.exists?()
-    #       |> case do
-    #         true ->
-    #           [
-    #             %{
-    #               package: name,
-    #               rules: File.read!(Path.join(path, "usage-rules.md"))
-    #             }
-    #           ]
+      run fn input, _ ->
+        Mix.Project.deps_paths()
+        |> Enum.filter(fn {name, _path} ->
+          to_string(name) in input.arguments.packages
+        end)
+        |> Enum.flat_map(fn {name, path} ->
+          path
+          |> Path.join("usage-rules.md")
+          |> File.exists?()
+          |> case do
+            true ->
+              [
+                %{
+                  package: to_string(name),
+                  rules: File.read!(Path.join(path, "usage-rules.md"))
+                }
+              ]
 
-    #         false ->
-    #           []
-    #       end
-    #     end)
-    #     |> then(&{:ok, &1})
-    #   end
-    # end
+            false ->
+              []
+          end
+        end)
+        |> then(&{:ok, &1})
+      end
+    end
+
+    action :list_packages_with_rules, {:array, :string} do
+      description """
+      Lists all packages in this project that have usage-rules.md files.
+      Use this to discover which packages provide usage guidance.
+      """
+
+      run fn _input, _ ->
+        Mix.Project.deps_paths()
+        |> Enum.filter(fn {_name, path} ->
+          Path.join(path, "usage-rules.md") |> File.exists?()
+        end)
+        |> Enum.map(fn {name, _path} -> to_string(name) end)
+        |> then(&{:ok, &1})
+      end
+    end
 
     action :list_generators, {:array, Task} do
       description """
