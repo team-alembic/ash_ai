@@ -25,6 +25,7 @@ defmodule AshAi.Actions.Prompt.Adapter.RequestJson do
 
   @default_max_retries 2
   @json_markdown_regex ~r/```json\s*(.*?)\s*```/s
+  @json_xml_regex ~r/<json>\s*(.*?)\s*<\/json>/s
 
   def run(%Data{} = data, opts) do
     max_retries = opts[:max_retries] || @default_max_retries
@@ -38,7 +39,13 @@ defmodule AshAi.Actions.Prompt.Adapter.RequestJson do
       Message.new_user!(data.user_message)
     ]
 
-    json_processor = JsonProcessor.new!(@json_markdown_regex)
+    regex =
+      case json_format do
+        :xml -> @json_xml_regex
+        _ -> @json_markdown_regex
+      end
+
+    json_processor = JsonProcessor.new!(regex)
 
     chain =
       %{

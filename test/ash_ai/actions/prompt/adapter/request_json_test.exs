@@ -53,14 +53,13 @@ defmodule AshAi.Actions.Prompt.Adapter.RequestJsonTest do
       default_accept([:*])
       defaults([:create, :read, :update, :destroy])
 
-
       action :get_person_info, Person do
         description("Get information about a person")
         argument(:name, :string, allow_nil?: false)
 
         run prompt(
-          fn _input, _args ->
-          ChatFaker.new!(%{
+              fn _input, _args ->
+                ChatFaker.new!(%{
                   expect_fun: fn _model, _messages, _tools ->
                     json_response = """
                     Here is your response.
@@ -76,19 +75,22 @@ defmodule AshAi.Actions.Prompt.Adapter.RequestJsonTest do
                     }
                     ```
                     """
-                    {:ok,LangChain.Message.new_assistant!(%{
-                      content: json_response,
-                    })}
+
+                    {:ok,
+                     LangChain.Message.new_assistant!(%{
+                       content: json_response
+                     })}
                   end
                 })
-              end ,
-          adapter: {AshAi.Actions.Prompt.Adapter.RequestJson, [
-            max_retries: 2,
-            json_format: :markdown,
-            include_examples: true
-          ]}
-        )
-
+              end,
+              adapter:
+                {AshAi.Actions.Prompt.Adapter.RequestJson,
+                 [
+                   max_retries: 2,
+                   json_format: :markdown,
+                   include_examples: true
+                 ]}
+            )
       end
 
       action :get_weather, Weather do
@@ -96,33 +98,37 @@ defmodule AshAi.Actions.Prompt.Adapter.RequestJsonTest do
         argument(:location, :string, allow_nil?: false)
 
         run prompt(
-          fn _input, _context ->
-            ChatFaker.new!(%{
-              expect_fun: fn _model, _messages, _tools ->
-                json_response = """
-                <json>
-                {
-                  "result": {
-                    "temperature": 75,
-                    "condition": "partly cloudy",
-                    "humidity": 60
-                  }
-                }
-                </json>
-                """
-                {:ok,LangChain.Message.new_assistant!(%{content: json_response})}
-              end
-            })
-          end,
-          adapter: {AshAi.Actions.Prompt.Adapter.RequestJson, [
-            max_retries: 1,
-            json_format: :xml,
-            include_examples: false
-          ]}
-        )
+              fn _input, _context ->
+                ChatFaker.new!(%{
+                  expect_fun: fn _model, _messages, _tools ->
+                    json_response = """
+                    <json>
+                    {
+                      "result": {
+                        "temperature": 75,
+                        "condition": "partly cloudy",
+                        "humidity": 60
+                      }
+                    }
+                    </json>
+                    """
+
+                    {:ok, LangChain.Message.new_assistant!(%{content: json_response})}
+                  end
+                })
+              end,
+              adapter:
+                {AshAi.Actions.Prompt.Adapter.RequestJson,
+                 [
+                   max_retries: 1,
+                   json_format: :xml,
+                   include_examples: false
+                 ]}
+            )
       end
     end
   end
+
   defmodule RetryResource do
     use Ash.Resource, domain: TestDomain, data_layer: Ash.DataLayer.Ets, extensions: [AshAi]
 
@@ -138,45 +144,49 @@ defmodule AshAi.Actions.Prompt.Adapter.RequestJsonTest do
       default_accept([:*])
       defaults([:create, :read, :update, :destroy])
 
-
       action :test_retry, Person do
         description("Test retry functionality")
         argument(:text, :string, allow_nil?: false)
 
         run prompt(
-          fn _input, _context ->
-            ChatFaker.new!(%{
-              expect_fun: fn _model, messages, _tools ->
-                # First call: invalid JSON, second call: valid JSON
-                if length(messages) <= 2 do
-                  {:ok,LangChain.Message.new_assistant!(%{content: "This is not valid JSON"})}
-                else
-                  json_response = """
-                  ```json
-                  {
-                    "result": {
-                      "name": "Jane Smith",
-                      "age": 28,
-                      "occupation": "Designer",
-                      "location": "Portland"
-                    }
-                  }
-                  ```
-                  """
-                  {:ok,LangChain.Message.new_assistant!(%{content: json_response})}
-                end
-              end
-            })
-          end,
-          adapter: {AshAi.Actions.Prompt.Adapter.RequestJson, [
-            max_retries: 2,
-            json_format: :markdown,
-            include_examples: true
-          ]}
-        )
+              fn _input, _context ->
+                ChatFaker.new!(%{
+                  expect_fun: fn _model, messages, _tools ->
+                    # First call: invalid JSON, second call: valid JSON
+                    if length(messages) <= 2 do
+                      {:ok,
+                       LangChain.Message.new_assistant!(%{content: "This is not valid JSON"})}
+                    else
+                      json_response = """
+                      ```json
+                      {
+                        "result": {
+                          "name": "Jane Smith",
+                          "age": 28,
+                          "occupation": "Designer",
+                          "location": "Portland"
+                        }
+                      }
+                      ```
+                      """
+
+                      {:ok, LangChain.Message.new_assistant!(%{content: json_response})}
+                    end
+                  end
+                })
+              end,
+              adapter:
+                {AshAi.Actions.Prompt.Adapter.RequestJson,
+                 [
+                   max_retries: 2,
+                   json_format: :markdown,
+                   include_examples: true
+                 ]}
+            )
       end
     end
   end
+
   defmodule ValidationErrorResource do
     use Ash.Resource, domain: TestDomain, data_layer: Ash.DataLayer.Ets, extensions: [AshAi]
 
@@ -197,32 +207,35 @@ defmodule AshAi.Actions.Prompt.Adapter.RequestJsonTest do
         argument(:text, :string, allow_nil?: false)
 
         run prompt(
-          fn _input, _context ->
-            ChatFaker.new!(%{
-              expect_fun: fn _model, _messages, _tools ->
-                # Return invalid data type (string instead of integer for age)
-                json_response = """
-                ```json
-                {
-                  "result": {
-                    "name": "Bob Wilson",
-                    "age": "not a number",
-                    "occupation": "Teacher",
-                    "location": "Chicago"
-                  }
-                }
-                ```
-                """
-                {:ok,LangChain.Message.new_assistant!(%{content: json_response})}
-              end
-            })
-          end,
-          adapter: {AshAi.Actions.Prompt.Adapter.RequestJson, [
-            max_retries: 0,
-            json_format: :markdown,
-            include_examples: true
-          ]}
-        )
+              fn _input, _context ->
+                ChatFaker.new!(%{
+                  expect_fun: fn _model, _messages, _tools ->
+                    # Return invalid data type (string instead of integer for age)
+                    json_response = """
+                    ```json
+                    {
+                      "result": {
+                        "name": "Bob Wilson",
+                        "age": "not a number",
+                        "occupation": "Teacher",
+                        "location": "Chicago"
+                      }
+                    }
+                    ```
+                    """
+
+                    {:ok, LangChain.Message.new_assistant!(%{content: json_response})}
+                  end
+                })
+              end,
+              adapter:
+                {AshAi.Actions.Prompt.Adapter.RequestJson,
+                 [
+                   max_retries: 0,
+                   json_format: :markdown,
+                   include_examples: true
+                 ]}
+            )
       end
     end
   end
@@ -239,7 +252,8 @@ defmodule AshAi.Actions.Prompt.Adapter.RequestJsonTest do
 
   describe "RequestJson adapter" do
     test "successfully executes get_person_info action" do
-      result = TestResource
+      result =
+        TestResource
         |> Ash.ActionInput.for_action(:get_person_info, %{name: "John Doe"})
         |> Ash.run_action!()
 
@@ -250,7 +264,8 @@ defmodule AshAi.Actions.Prompt.Adapter.RequestJsonTest do
     end
 
     test "successfully executes get_weather action with XML format" do
-      result = TestResource
+      result =
+        TestResource
         |> Ash.ActionInput.for_action(:get_weather, %{location: "San Francisco"})
         |> Ash.run_action!()
 
@@ -260,7 +275,8 @@ defmodule AshAi.Actions.Prompt.Adapter.RequestJsonTest do
     end
 
     test "handles retry scenarios with invalid JSON" do
-      result = RetryResource
+      result =
+        RetryResource
         |> Ash.ActionInput.for_action(:test_retry, %{text: "test"})
         |> Ash.run_action!()
 
@@ -271,11 +287,12 @@ defmodule AshAi.Actions.Prompt.Adapter.RequestJsonTest do
     end
 
     test "handles validation errors" do
-      errors = assert_raise Ash.Error.Unknown, fn ->
-        ValidationErrorResource
+      errors =
+        assert_raise Ash.Error.Unknown, fn ->
+          ValidationErrorResource
           |> Ash.ActionInput.for_action(:test_validation, %{text: "test"})
           |> Ash.run_action!()
-      end
+        end
 
       # Check for specific error details
       assert length(errors.errors) == 1
@@ -283,7 +300,6 @@ defmodule AshAi.Actions.Prompt.Adapter.RequestJsonTest do
 
       # Validate error message
       assert error.error =~ "field: :age"
-
     end
   end
 end

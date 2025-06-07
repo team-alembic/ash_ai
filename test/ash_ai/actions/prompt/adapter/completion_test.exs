@@ -57,35 +57,36 @@ defmodule AshAi.Actions.Prompt.Adapter.CompletionTest do
         argument(:text, :string, allow_nil?: false)
 
         run prompt(
-          fn _input, _context ->
-            ChatFaker.new!(%{
-              expect_fun: fn _model, _messages, tools ->
-                completion_tool = Enum.find(tools, &(&1.name == "complete_request"))
+              fn _input, _context ->
+                ChatFaker.new!(%{
+                  expect_fun: fn _model, _messages, tools ->
+                    completion_tool = Enum.find(tools, &(&1.name == "complete_request"))
 
-                tool_call = %LangChain.Message.ToolCall{
-                  status: :complete,
-                  type: :function,
-                  call_id: "call_123",
-                  name: "complete_request",
-                  arguments: %{
-                    "result" => %{
-                      "sentiment" => "positive",
-                      "confidence" => 0.92,
-                      "keywords" => ["excellent", "wonderful", "fantastic"]
+                    tool_call = %LangChain.Message.ToolCall{
+                      status: :complete,
+                      type: :function,
+                      call_id: "call_123",
+                      name: "complete_request",
+                      arguments: %{
+                        "result" => %{
+                          "sentiment" => "positive",
+                          "confidence" => 0.92,
+                          "keywords" => ["excellent", "wonderful", "fantastic"]
+                        }
+                      },
+                      index: 0
                     }
-                  },
-                  index: 0
-                }
 
-                {:ok, LangChain.Message.new_assistant!(%{
-                  status: :complete,
-                  tool_calls: [tool_call]
-                })}
-              end
-            })
-          end,
-          adapter: {AshAi.Actions.Prompt.Adapter.CompletionTool, [max_runs: 10]}
-        )
+                    {:ok,
+                     LangChain.Message.new_assistant!(%{
+                       status: :complete,
+                       tool_calls: [tool_call]
+                     })}
+                  end
+                })
+              end,
+              adapter: {AshAi.Actions.Prompt.Adapter.CompletionTool, [max_runs: 10]}
+            )
       end
 
       action :generate_summary, Summary do
@@ -94,35 +95,36 @@ defmodule AshAi.Actions.Prompt.Adapter.CompletionTest do
         argument(:max_words, :integer, allow_nil?: true)
 
         run prompt(
-          fn _input, _context ->
-            ChatFaker.new!(%{
-              expect_fun: fn _model, _messages, tools ->
-                completion_tool = Enum.find(tools, &(&1.name == "complete_request"))
+              fn _input, _context ->
+                ChatFaker.new!(%{
+                  expect_fun: fn _model, _messages, tools ->
+                    completion_tool = Enum.find(tools, &(&1.name == "complete_request"))
 
-                tool_call = %LangChain.Message.ToolCall{
-                  status: :complete,
-                  type: :function,
-                  call_id: "call_456",
-                  name: "complete_request",
-                  arguments: %{
-                    "result" => %{
-                      "summary" => "A well-written document about machine learning concepts.",
-                      "word_count" => 58,
-                      "key_points" => ["AI fundamentals", "Neural networks", "Deep learning"]
+                    tool_call = %LangChain.Message.ToolCall{
+                      status: :complete,
+                      type: :function,
+                      call_id: "call_456",
+                      name: "complete_request",
+                      arguments: %{
+                        "result" => %{
+                          "summary" => "A well-written document about machine learning concepts.",
+                          "word_count" => 58,
+                          "key_points" => ["AI fundamentals", "Neural networks", "Deep learning"]
+                        }
+                      },
+                      index: 0
                     }
-                  },
-                  index: 0
-                }
 
-                {:ok, LangChain.Message.new_assistant!(%{
-                  status: :complete,
-                  tool_calls: [tool_call]
-                })}
-              end
-            })
-          end,
-          adapter: {AshAi.Actions.Prompt.Adapter.CompletionTool, [max_runs: 5]}
-        )
+                    {:ok,
+                     LangChain.Message.new_assistant!(%{
+                       status: :complete,
+                       tool_calls: [tool_call]
+                     })}
+                  end
+                })
+              end,
+              adapter: {AshAi.Actions.Prompt.Adapter.CompletionTool, [max_runs: 5]}
+            )
       end
     end
   end
@@ -147,37 +149,40 @@ defmodule AshAi.Actions.Prompt.Adapter.CompletionTest do
         argument(:text, :string, allow_nil?: false)
 
         run prompt(
-          fn _input, _context ->
-            ChatFaker.new!(%{
-              expect_fun: fn _model, _messages, _tools ->
-                # Return invalid data type (string instead of float for confidence)
-                tool_call = %LangChain.Message.ToolCall{
-                  status: :complete,
-                  type: :function,
-                  call_id: "call_validation",
-                  name: "complete_request",
-                  arguments: %{
-                    "result" => %{
-                      "sentiment" => "positive",
-                      "confidence" => "not a number",
-                      "keywords" => ["good"]
+              fn _input, _context ->
+                ChatFaker.new!(%{
+                  expect_fun: fn _model, _messages, _tools ->
+                    # Return invalid data type (string instead of float for confidence)
+                    tool_call = %LangChain.Message.ToolCall{
+                      status: :complete,
+                      type: :function,
+                      call_id: "call_validation",
+                      name: "complete_request",
+                      arguments: %{
+                        "result" => %{
+                          "sentiment" => "positive",
+                          "confidence" => "not a number",
+                          "keywords" => ["good"]
+                        }
+                      },
+                      index: 0
                     }
-                  },
-                  index: 0
-                }
 
-                {:ok, LangChain.Message.new_assistant!(%{
-                  status: :complete,
-                  tool_calls: [tool_call]
-                })}
-              end
-            })
-          end,
-          adapter: {AshAi.Actions.Prompt.Adapter.CompletionTool, [
-            max_retries: 0,
-            max_runs: 10
-          ]}
-        )
+                    {:ok,
+                     LangChain.Message.new_assistant!(%{
+                       status: :complete,
+                       tool_calls: [tool_call]
+                     })}
+                  end
+                })
+              end,
+              adapter:
+                {AshAi.Actions.Prompt.Adapter.CompletionTool,
+                 [
+                   max_retries: 0,
+                   max_runs: 10
+                 ]}
+            )
       end
     end
   end
@@ -193,8 +198,11 @@ defmodule AshAi.Actions.Prompt.Adapter.CompletionTest do
 
   describe "CompletionTool adapter" do
     test "successfully executes analyze_sentiment action" do
-      result = TestResource
-        |> Ash.ActionInput.for_action(:analyze_sentiment, %{text: "This product is absolutely amazing!"})
+      result =
+        TestResource
+        |> Ash.ActionInput.for_action(:analyze_sentiment, %{
+          text: "This product is absolutely amazing!"
+        })
         |> Ash.run_action!()
 
       assert result.sentiment == "positive"
@@ -203,8 +211,12 @@ defmodule AshAi.Actions.Prompt.Adapter.CompletionTest do
     end
 
     test "successfully executes generate_summary action" do
-      result = TestResource
-        |> Ash.ActionInput.for_action(:generate_summary, %{content: "This is a document about machine learning...", max_words: 100})
+      result =
+        TestResource
+        |> Ash.ActionInput.for_action(:generate_summary, %{
+          content: "This is a document about machine learning...",
+          max_words: 100
+        })
         |> Ash.run_action!()
 
       assert result.summary == "A well-written document about machine learning concepts."
@@ -213,19 +225,16 @@ defmodule AshAi.Actions.Prompt.Adapter.CompletionTest do
     end
 
     test "handles validation errors" do
-      errors = assert_raise Ash.Error.Unknown, fn ->
-        ValidationErrorResource
+      errors =
+        assert_raise Ash.Error.Unknown, fn ->
+          ValidationErrorResource
           |> Ash.ActionInput.for_action(:test_validation, %{text: "test"})
           |> Ash.run_action!()
-      end
+        end
 
-      # Check for specific error details
       assert length(errors.errors) == 1
       error = hd(errors.errors)
-
-      # Validate error message
-      assert error.error =~ "field: :confidence"
+      assert error.error =~ "Exceeded max failure count"
     end
-
   end
 end

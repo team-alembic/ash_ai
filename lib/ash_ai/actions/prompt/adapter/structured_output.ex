@@ -50,27 +50,58 @@ defmodule AshAi.Actions.Prompt.Adapter.StructuredOutput do
          last_message: %{content: content}
        }}
       when is_binary(content) ->
-        with {:ok, decoded} <- Jason.decode(content),
-             {:ok, value} <-
-               Ash.Type.cast_input(
-                 data.input.action.returns,
-                 decoded["result"],
-                 data.input.action.constraints
-               ),
-             {:ok, value} <-
-               Ash.Type.apply_constraints(
-                 data.input.action.returns,
-                 value,
-                 data.input.action.constraints
-               ) do
-          {:ok, value}
-        else
-          _error ->
-            {:error, "Invalid LLM response"}
-        end
+        process_llm_response(content, data)
 
       {:error, _, error} ->
         {:error, error}
     end
   end
+
+  defp process_llm_response(content, data) do
+    with {:json_decode, {:ok, decoded}} <- {:json_decode, Jason.decode(content)},
+         {:cast_input, {:ok, value}} <- cast_to_type(decoded["result"], data),
+         {:apply_constraints, {:ok, value}} <- validate_constraints(value, data) do
+      {:ok, value}
+    else
+      error ->
+        {:error, format_error(error, content)}
+    end
+  end
+
+  defp cast_to_type(result, data) do
+    {:cast_input,
+     Ash.Type.cast_input(
+       data.input.action.returns,
+       result,
+       data.input.action.constraints
+     )}
+  end
+
+  defp validate_constraints(value, data) do
+    {:apply_constraints,
+     Ash.Type.apply_constraints(
+       data.input.action.returns,
+       value,
+       data.input.action.constraints
+     )}
+  end
+
+  defp format_error({:json_decode, {:error, %Jason.DecodeError{} = decode_error}}, content) do
+    "Failed to decode JSON response: #{Exception.message(decode_error)}. Raw LLM Response: #{inspect(content)}"
+  end
+
+  defp format_error({:cast_input, {:error, error}}, content) do
+    "Failed to cast LLM response to expected type: #{format_type_error(error)}. Raw LLM Response: #{inspect(content)}"
+  end
+
+  defp format_error({:apply_constraints, {:error, error}}, content) do
+    "LLM response failed constraint validation: #{format_type_error(error)}. Raw LLM Response: #{inspect(content)}"
+  end
+
+  defp format_error(error, content) do
+    "Invalid LLM response: #{inspect(error)}. Raw LLM Response: #{inspect(content)}"
+  end
+
+  defp format_type_error(error) when is_binary(error), do: error
+  defp format_type_error(error), do: inspect(error)
 end
