@@ -1,4 +1,4 @@
-if Code.ensure_loaded?(AshAuthentication) do
+if Code.ensure_loaded?(AshAuthentication) && Code.ensure_loaded?(Igniter) do
   defmodule AshAi.AshAuth do
     @moduledoc false
     def setup_api_key_auth(igniter, router, user) do
