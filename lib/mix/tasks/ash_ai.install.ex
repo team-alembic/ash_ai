@@ -49,6 +49,7 @@ if Code.ensure_loaded?(Igniter) do
       igniter
       |> Igniter.Project.Formatter.import_dep(:ash_ai)
       |> add_dev_mcp()
+      |> Igniter.add_task("usage_rules.sync", ["AGENTS.md", "--all", "--link-to-folder", "deps"])
     end
 
     defp add_dev_mcp(igniter) do
