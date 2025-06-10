@@ -419,7 +419,7 @@ defmodule AshAi do
 
                   "exists" ->
                     query
-                    |> Ash.exists?()
+                    |> Ash.exists()
                     |> case do
                       {:ok, value} ->
                         value
