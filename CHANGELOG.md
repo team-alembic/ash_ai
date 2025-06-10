@@ -5,6 +5,39 @@ See [Conventional Commits](Https://conventionalcommits.org) for commit guideline
 
 <!-- changelog -->
 
+## [v0.2.0](https://github.com/ash-project/ash_ai/compare/v0.1.11...v0.2.0) (2025-06-10)
+
+
+
+
+### Features:
+
+* Json Processor for providers that do not support json_schema or tool calling (#49) by [@TwistingTwists](https://github.com/TwistingTwists)
+
+* improvement: Usage rules mcp integration (#60) by [Barnabas Jovanovics](https://https://github.com/barnabasJ)
+
+### Bug Fixes:
+
+* tasks: fix prompt typo (#62) by ChristianAlexander
+
+* endpoint matching for url 'starting from' api.openai.com (#57) by [@TwistingTwists](https://github.com/TwistingTwists)
+
+* fix oban option passing by [@zachdaniel](https://github.com/zachdaniel)
+
+* require an explicit endpoint set by [@zachdaniel](https://github.com/zachdaniel)
+
+* pass tenant to AshOban.run_trigger by [@zachdaniel](https://github.com/zachdaniel)
+
+### Improvements:
+
+* sync usage rules on project creation by [@zachdaniel](https://github.com/zachdaniel)
+
+* more context in error messages (#56) by [@TwistingTwists](https://github.com/TwistingTwists)
+
+* When using Adapter.CompletionTool (for anthropic) add the cache_control (#51) by Rodolfo Torres
+
+* more realistic handling of example generation (#50) by [@TwistingTwists](https://github.com/TwistingTwists)
+
 ## [v0.1.11](https://github.com/ash-project/ash_ai/compare/v0.1.10...v0.1.11) (2025-06-04)
 
 
