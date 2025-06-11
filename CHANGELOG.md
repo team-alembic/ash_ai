@@ -5,6 +5,19 @@ See [Conventional Commits](Https://conventionalcommits.org) for commit guideline
 
 <!-- changelog -->
 
+## [v0.2.1](https://github.com/ash-project/ash_ai/compare/v0.2.0...v0.2.1) (2025-06-11)
+
+
+
+
+### Bug Fixes:
+
+* fix installer waiting for input by [@zachdaniel](https://github.com/zachdaniel)
+
+### Improvements:
+
+* make usage rules display all and show file paths instead of by [@zachdaniel](https://github.com/zachdaniel)
+
 ## [v0.2.0](https://github.com/ash-project/ash_ai/compare/v0.1.11...v0.2.0) (2025-06-10)
 
 
