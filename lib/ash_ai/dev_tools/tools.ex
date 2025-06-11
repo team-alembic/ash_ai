@@ -78,6 +78,8 @@ defmodule AshAi.DevTools.Tools do
       run fn input, _ ->
         Mix.Project.deps_paths()
         |> Enum.flat_map(fn {name, path} ->
+          path = Path.relative_to_cwd(path)
+
           description =
             case Application.spec(name, :description) do
               nil -> ""
