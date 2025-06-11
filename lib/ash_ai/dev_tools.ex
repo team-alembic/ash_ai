@@ -11,13 +11,10 @@ defmodule AshAi.DevTools do
 
     tool :get_usage_rules, AshAi.DevTools.Tools, :get_usage_rules do
       description """
-      Get usage rules for the provided packages.
-      Do this early as soon as you see that you are working with a given package.
-      """
-    end
+      Gets name, description and usage rules file path for all packages that have usage rules.
 
-    tool :list_packages_with_rules, AshAi.DevTools.Tools, :list_packages_with_rules do
-      description "List all packages that have usage-rules.md files"
+      Read the usage rules file to understand how to use any given package.
+      """
     end
 
     tool :list_generators, AshAi.DevTools.Tools, :list_generators do
