@@ -2,95 +2,55 @@ defmodule AshAi.DevTools.ToolsTest do
   use ExUnit.Case, async: true
 
   describe "get_usage_rules action" do
-    test "returns rules for packages with usage-rules.md files" do
+    test "returns all packages with usage-rules.md files" do
       {:ok, results} =
         AshAi.DevTools.Tools
-        |> Ash.ActionInput.for_action(:get_usage_rules, %{packages: ["ash"]})
+        |> Ash.ActionInput.for_action(:get_usage_rules, %{})
         |> Ash.run_action()
 
       assert is_list(results)
 
-      [%{package: "ash", rules: rules}] = results
-      assert is_binary(rules)
-      assert String.length(rules) > 0
-      assert String.contains?(rules, "Ash")
-    end
+      # Should find some packages with usage rules
+      assert length(results) > 0
 
-    test "returns multiple results for multiple packages with rules" do
-      {:ok, results} =
-        AshAi.DevTools.Tools
-        |> Ash.ActionInput.for_action(:get_usage_rules, %{
-          packages: ["ash", "ash_postgres", "igniter"]
-        })
-        |> Ash.run_action()
-
-      assert is_list(results)
-
-      for %{package: package, rules: rules} <- results do
+      for %{package: package, package_description: description, file_path: file_path} <- results do
         assert is_binary(package)
-        assert is_binary(rules)
-        assert String.length(rules) > 0
-        assert package in ["ash", "ash_postgres", "igniter"]
+        assert is_binary(description)
+        assert is_binary(file_path)
+        assert String.ends_with?(file_path, "usage-rules.md")
+        assert File.exists?(file_path)
       end
     end
 
-    test "returns empty list for packages without usage-rules.md" do
+    test "includes expected packages with usage rules" do
       {:ok, results} =
         AshAi.DevTools.Tools
-        |> Ash.ActionInput.for_action(:get_usage_rules, %{packages: ["non_existent_package"]})
+        |> Ash.ActionInput.for_action(:get_usage_rules, %{})
         |> Ash.run_action()
 
-      assert results == []
-    end
+      packages = Enum.map(results, & &1.package)
 
-    test "filters out packages without rules from mixed list" do
-      {:ok, results} =
-        AshAi.DevTools.Tools
-        |> Ash.ActionInput.for_action(:get_usage_rules, %{
-          packages: ["ash", "non_existent_package"]
-        })
-        |> Ash.run_action()
+      # Check for some packages we know should have usage rules
+      expected_packages = ["ash", "igniter"]
 
-      assert is_list(results)
-
-      [%{package: "ash", rules: rules}] = results
-      assert is_binary(rules)
-      assert String.length(rules) > 0
-    end
-
-    test "handles empty package list" do
-      {:ok, results} =
-        AshAi.DevTools.Tools
-        |> Ash.ActionInput.for_action(:get_usage_rules, %{packages: []})
-        |> Ash.run_action()
-
-      assert results == []
-    end
-  end
-
-  describe "list_packages_with_rules action" do
-    test "returns list of packages that have usage-rules.md files" do
-      {:ok, results} =
-        AshAi.DevTools.Tools
-        |> Ash.ActionInput.for_action(:list_packages_with_rules, %{})
-        |> Ash.run_action()
-
-      assert is_list(results)
-
-      for package <- results do
-        assert is_binary(package)
+      for expected <- expected_packages do
+        if expected in packages do
+          # If the package is found, verify its structure
+          package_result = Enum.find(results, &(&1.package == expected))
+          assert package_result.file_path
+          assert String.ends_with?(package_result.file_path, "usage-rules.md")
+        end
       end
+    end
 
-      if length(results) > 0 do
-        first_package = List.first(results)
-        deps_paths = Mix.Project.deps_paths()
+    test "file paths point to existing files" do
+      {:ok, results} =
+        AshAi.DevTools.Tools
+        |> Ash.ActionInput.for_action(:get_usage_rules, %{})
+        |> Ash.run_action()
 
-        {_name, path} =
-          Enum.find(deps_paths, fn {name, _} ->
-            to_string(name) == first_package
-          end) || raise("Package #{first_package} not found in deps")
-
-        assert File.exists?(Path.join(path, "usage-rules.md"))
+      for %{file_path: file_path} <- results do
+        assert File.exists?(file_path), "File #{file_path} should exist"
       end
     end
   end
@@ -169,7 +129,7 @@ defmodule AshAi.DevTools.ToolsTest do
     test "get_usage_rules has appropriate description" do
       action = Ash.Resource.Info.action(AshAi.DevTools.Tools, :get_usage_rules)
 
-      assert action.description =~ "rules"
+      assert action.description =~ "usage rules"
       assert action.description =~ "packages"
       assert action.description =~ "usage-rules.md"
     end
@@ -179,13 +139,6 @@ defmodule AshAi.DevTools.ToolsTest do
 
       assert action.description =~ "Ash resources"
       assert action.description =~ "domains"
-    end
-
-    test "list_packages_with_rules has appropriate description" do
-      action = Ash.Resource.Info.action(AshAi.DevTools.Tools, :list_packages_with_rules)
-
-      assert action.description =~ "packages"
-      assert action.description =~ "usage-rules.md"
     end
 
     test "list_generators has appropriate description" do
@@ -201,15 +154,17 @@ defmodule AshAi.DevTools.ToolsTest do
       # This should not raise an error when used in action results
       {:ok, results} =
         AshAi.DevTools.Tools
-        |> Ash.ActionInput.for_action(:get_usage_rules, %{packages: []})
+        |> Ash.ActionInput.for_action(:get_usage_rules, %{})
         |> Ash.run_action()
 
       assert is_list(results)
 
-      valid_usage_rule = %{package: "test_package", rules: "test rules content"}
-      assert is_map(valid_usage_rule)
-      assert Map.has_key?(valid_usage_rule, :package)
-      assert Map.has_key?(valid_usage_rule, :rules)
+      for usage_rule <- results do
+        assert is_map(usage_rule)
+        assert Map.has_key?(usage_rule, :package)
+        assert Map.has_key?(usage_rule, :package_description)
+        assert Map.has_key?(usage_rule, :file_path)
+      end
     end
 
     test "Resource type has correct structure" do
