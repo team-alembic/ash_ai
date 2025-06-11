@@ -36,7 +36,7 @@ defmodule AshAi.Mcp do
 
   ```elixir
   # In your Phoenix router
-  forward "/mcp", AshAi.Mcp.router()
+  forward "/mcp", AshAi.Mcp.Router
 
   # With tools enabled
   forward "/mcp", AshAi.Mcp.Router, tools: [:tool1, :tool2]
@@ -47,24 +47,4 @@ defmodule AshAi.Mcp do
   The MCP router is a standard Plug, so it can be integrated into any Plug-based application.
   You are responsible for hosting the Plug however you prefer.
   """
-
-  use Supervisor
-
-  def start_link(state) do
-    Supervisor.start_link(__MODULE__, state, name: __MODULE__)
-  end
-
-  @impl true
-  def init(_state) do
-    # Don't need any of this right now
-    children = [
-      # # Registry for session tracking
-      # {Registry, name: __MODULE__.Registry, keys: :unique},
-
-      # # Dynamic supervisor for session processes
-      # {DynamicSupervisor, name: __MODULE__.SessionSupervisor, strategy: :one_for_one}
-    ]
-
-    Supervisor.init(children, strategy: :one_for_one)
-  end
 end

@@ -7,9 +7,6 @@ defmodule AshAi.Mcp.Server do
   It also handles the core JSON-RPC message processing for the protocol.
   """
 
-  # no session features for now
-  # alias AshAi.Mcp.Session
-
   @doc """
   Process an HTTP POST request containing JSON-RPC messages
   """
@@ -61,10 +58,6 @@ defmodule AshAi.Mcp.Server do
     accept_header = Plug.Conn.get_req_header(conn, "accept")
 
     if Enum.any?(accept_header, &String.contains?(&1, "text/event-stream")) do
-      # {:ok, pid} = Session.get_or_create(session_id)
-      # Process.link(pid)
-      # Session.put(session_id, :conn, conn)
-
       # Get the current host and path to create the post URL
       host = Plug.Conn.get_req_header(conn, "host") |> List.first()
       scheme = if conn.scheme == :https, do: "https", else: "http"
@@ -75,13 +68,10 @@ defmodule AshAi.Mcp.Server do
       conn
       |> Plug.Conn.put_resp_header("content-type", "text/event-stream")
       |> Plug.Conn.put_resp_header("cache-control", "no-cache")
-      |> Plug.Conn.send_chunked(200)
       # Send the post_url in an endpoint event according to MCP specification
+      |> Plug.Conn.send_chunked(200)
       |> send_sse_event("endpoint", Jason.encode!(%{"url" => post_url}))
-
-      # We don't need to keep the SSE connection alive right now
-      # but we might later for progress etc.
-      # :timer.sleep(:infinity)
+      |> Plug.Conn.halt()
     else
       # Client doesn't support SSE
       conn
@@ -94,16 +84,8 @@ defmodule AshAi.Mcp.Server do
   """
   def handle_delete(conn, session_id) do
     if session_id do
-      # session features left out for now
-      # case Session.terminate(session_id) do
-      #   :ok ->
       conn
       |> Plug.Conn.send_resp(200, "")
-
-      #   {:error, :not_found} ->
-      #     conn
-      #     |> Plug.Conn.send_resp(404, "")
-      # end
     else
       conn
       |> Plug.Conn.send_resp(400, "")
@@ -199,10 +181,6 @@ defmodule AshAi.Mcp.Server do
         # Handle initialize request
         new_session_id = session_id || Ash.UUIDv7.generate()
 
-        # Create session and store client info
-        # {:ok, _pid} = Session.get_or_create(new_session_id)
-        # Session.put(new_session_id, :client_info, params["client"])
-
         protocol_version_statement = opts[:protocol_version_statement] || "2025-03-26"
 
         # Return capabilities
@@ -226,11 +204,6 @@ defmodule AshAi.Mcp.Server do
         {:initialize_response, Jason.encode!(response), new_session_id}
 
       %{"method" => "shutdown", "id" => id, "params" => _params} ->
-        # Handle shutdown request - clean up session resources
-        # if session_id do
-        #   session.terminate(session_id)
-        # end
-
         # Return success
         response = %{
           "jsonrpc" => "2.0",
