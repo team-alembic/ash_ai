@@ -5,6 +5,19 @@ See [Conventional Commits](Https://conventionalcommits.org) for commit guideline
 
 <!-- changelog -->
 
+## [v0.2.2](https://github.com/ash-project/ash_ai/compare/v0.2.1...v0.2.2) (2025-06-11)
+
+
+
+
+### Bug Fixes:
+
+* properly close connection after sending the endpoint by [@zachdaniel](https://github.com/zachdaniel)
+
+### Improvements:
+
+* use relative paths in usage rules MCP by [@zachdaniel](https://github.com/zachdaniel)
+
 ## [v0.2.1](https://github.com/ash-project/ash_ai/compare/v0.2.0...v0.2.1) (2025-06-11)
 
 
