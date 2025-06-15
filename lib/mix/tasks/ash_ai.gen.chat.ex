@@ -71,6 +71,7 @@ if Code.ensure_loaded?(Igniter) do
       |> add_chat_live(chat, conversation, message)
       |> add_code_interfaces(chat, conversation, message, user)
       |> add_triggers(message, conversation, user)
+      |> add_markdown_assets()
       |> Ash.Igniter.codegen("add_ai_chat")
       |> Igniter.add_notice("""
       AshAi:
@@ -78,6 +79,12 @@ if Code.ensure_loaded?(Igniter) do
       The chat feature has been generated assuming an OpenAI setup.
       Please see LangChain's documentation on setting up other providers,
       and modify the generated code accordingly to use your desired model.
+
+      Markdown rendering has been added to chat messages. The following files were created:
+      - assets/js/hooks/markdown_hook.js
+      - assets/css/components/markdown.css
+
+      Make sure to include the markdown hook in your app.js file and import the CSS.
       """)
     end
 
@@ -950,6 +957,301 @@ if Code.ensure_loaded?(Igniter) do
       apply(AshOban.Igniter, :add_new_trigger, [igniter, conversation, name, code])
     end
 
+    defp add_markdown_assets(igniter) do
+      igniter
+      |> add_markdown_hook_file()
+      |> add_markdown_css_file()
+      |> add_cdn_scripts_to_layout()
+    end
+
+    defp add_markdown_hook_file(igniter) do
+      hook_content = """
+  const MarkdownHook = {
+    mounted() {
+      this.renderMarkdown();
+    },
+    updated() {
+      this.renderMarkdown();
+    },
+    renderMarkdown() {
+      const markdownText = this.el.textContent.trim();
+      if (!markdownText) return;
+
+      try {
+        // Configure marked options
+        const markedOptions = {
+          breaks: true,
+          gfm: true,
+          sanitize: false, // We'll use DOMPurify instead
+          highlight: function (code, lang) {
+            // Basic code highlighting placeholder
+            return code;
+          },
+        };
+
+        // Parse markdown to HTML
+        const html = marked.parse(markdownText, markedOptions);
+
+        // Sanitize the HTML to prevent XSS
+        const cleanHtml = DOMPurify.sanitize(html, {
+          ALLOWED_TAGS: [
+            "p",
+            "br",
+            "strong",
+            "b",
+            "em",
+            "i",
+            "u",
+            "s",
+            "del",
+            "strike",
+            "code",
+            "pre",
+            "h1",
+            "h2",
+            "h3",
+            "h4",
+            "h5",
+            "h6",
+            "ul",
+            "ol",
+            "li",
+            "blockquote",
+            "a",
+            "img",
+            "table",
+            "thead",
+            "tbody",
+            "tr",
+            "th",
+            "td",
+            "hr",
+            "span",
+            "div",
+          ],
+          ALLOWED_ATTR: [
+            "href",
+            "title",
+            "src",
+            "alt",
+            "width",
+            "height",
+            "class",
+            "id",
+            "target",
+            "rel",
+          ],
+          ALLOW_DATA_ATTR: false,
+        });
+
+        // Update the element with clean HTML
+        this.el.innerHTML = cleanHtml;
+      } catch (error) {
+        console.error("Markdown rendering error:", error);
+        // Fall back to plain text if markdown rendering fails
+        this.el.textContent = markdownText;
+      }
+    },
+  };
+
+  export default MarkdownHook;
+  """
+
+      Igniter.create_new_file(igniter, "assets/js/hooks/markdown_hook.js", hook_content)
+    end
+
+    defp add_markdown_css_file(igniter) do
+      css_content = """
+  .markdown-content {
+      @apply text-base leading-relaxed;
+
+      h1,
+      h2,
+      h3,
+      h4,
+      h5,
+      h6 {
+          @apply font-bold mt-4 mb-2 first:mt-0;
+      }
+
+      h1 {
+          @apply text-xl;
+      }
+
+      h2 {
+          @apply text-lg;
+      }
+
+      h3 {
+          @apply text-base;
+      }
+
+      h4,
+      h5,
+      h6 {
+          @apply text-sm;
+      }
+
+      p {
+          @apply mb-3 last:mb-0;
+      }
+
+      ul,
+      ol {
+          @apply ml-6 mb-3 space-y-1;
+      }
+
+      ul {
+          @apply list-disc;
+      }
+
+      ol {
+          @apply list-decimal;
+      }
+
+      li {
+          @apply leading-relaxed;
+
+          > ul,
+          > ol {
+              @apply mt-1 mb-1;
+          }
+
+          &:has(> input[type="checkbox"]) {
+              @apply list-none ml-0;
+          }
+      }
+
+      code {
+          @apply bg-base-300 text-base-content px-1.5 py-0.5 rounded text-sm font-mono;
+      }
+
+      pre {
+          @apply bg-base-300 text-base-content p-4 rounded-lg overflow-x-auto mb-3 border;
+
+          code {
+              @apply bg-transparent p-0 text-sm;
+          }
+
+          &[class*="language-"] {
+              @apply relative;
+
+              &::before {
+                  content: attr(class);
+                  @apply absolute top-2 right-2 text-xs bg-base-200 text-base-content px-2 py-1 rounded opacity-50;
+                  content: attr(data-language);
+              }
+          }
+
+          + pre {
+              @apply mt-2;
+          }
+      }
+
+      blockquote {
+          @apply border-l-4 border-primary pl-4 py-1 my-3 italic bg-base-200 rounded-r;
+
+          p {
+              @apply mb-0;
+          }
+      }
+
+      a {
+          @apply text-primary underline hover:opacity-80 transition-colors;
+      }
+
+      strong {
+          @apply font-bold;
+      }
+
+      em {
+          @apply italic;
+      }
+
+      del {
+          @apply line-through opacity-75;
+      }
+
+      table {
+          @apply w-full border-collapse border border-base-300 mb-3 rounded-lg overflow-hidden;
+      }
+
+      th,
+      td {
+          @apply border border-base-300 px-3 py-2 text-left;
+      }
+
+      th {
+          @apply bg-base-200 font-semibold;
+      }
+
+      tbody tr:nth-child(even) {
+          @apply bg-base-100;
+      }
+
+      hr {
+          @apply border-0 border-t border-base-300 my-4;
+      }
+
+      img {
+          @apply max-w-full h-auto rounded-lg shadow-sm;
+      }
+
+      ul ul,
+      ol ol,
+      ul ol,
+      ol ul {
+          @apply ml-4;
+      }
+
+      input[type="checkbox"] {
+          @apply mr-2 accent-primary;
+      }
+
+      h1 code,
+      h2 code,
+      h3 code,
+      h4 code,
+      h5 code,
+      h6 code {
+          @apply text-inherit opacity-75;
+      }
+
+      > *:first-child {
+          @apply mt-0;
+      }
+
+      > *:last-child {
+          @apply mb-0;
+      }
+  }
+  """
+
+      Igniter.create_new_file(igniter, "assets/css/components/markdown.css", css_content)
+    end
+
+    defp add_cdn_scripts_to_layout(igniter) do
+      Igniter.add_notice(igniter, """
+      Please add the following script tags to your root layout (typically lib/my_app_web/components/layouts/root.html.heex):
+
+      <script src="https://cdn.jsdelivr.net/npm/marked@15/marked.min.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+
+      Also make sure to:
+      1. Import the markdown hook in your assets/js/app.js:
+         import MarkdownHook from "./hooks/markdown_hook"
+
+      2. Add it to your LiveSocket hooks:
+         let liveSocket = new LiveSocket("/live", Socket, {
+           hooks: { MarkdownHook },
+           // ... other options
+         })
+
+      3. Import the CSS in your assets/css/app.css:
+         @import "./components/markdown.css";
+      """)
+    end
+
     defp chat_live_contents(web_module, on_mount, endpoint, chat) do
       """
       use #{web_module}, :live_view
@@ -1018,7 +1320,13 @@ if Code.ensure_loaded?(Igniter) do
                         </div>
                       </div>
                       <div class="chat-bubble">
-                        {message.text}
+                        <div
+                          id={"markdown-" <> id}
+                          class="markdown-content"
+                          phx-hook="MarkdownHook"
+                        >
+                          {message.text}
+                        </div>
                       </div>
                     </div>
                   <% end %>
