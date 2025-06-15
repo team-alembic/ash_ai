@@ -96,9 +96,16 @@ if Code.ensure_loaded?(Igniter) do
           {Igniter.Project.Deps.add_dep(igniter, {:ash_oban, "~> 0.4"}), true}
         end
 
+      {igniter, install_mdex?} =
+        if Igniter.Project.Deps.has_dep?(igniter, :mdex) do
+          {igniter, false}
+        else
+          {Igniter.Project.Deps.add_dep(igniter, {:mdex, "~> 0.7"}), true}
+        end
+
       igniter
       |> then(fn igniter ->
-        if install_ash_phoenix? || install_ash_oban? do
+        if install_ash_phoenix? || install_ash_oban? || install_mdex? do
           if igniter.assigns[:test_mode?] do
             igniter
           else
@@ -1018,7 +1025,7 @@ if Code.ensure_loaded?(Igniter) do
                         </div>
                       </div>
                       <div class="chat-bubble">
-                        {message.text}
+                        <%= to_markdown(message.text) %>
                       </div>
                     </div>
                   <% end %>
@@ -1213,6 +1220,38 @@ if Code.ensure_loaded?(Igniter) do
             :message_form,
             form
           )
+        end
+
+        defp to_markdown(text) do
+          # Note that you must pass the "unsafe_: true" option to first generate the raw HTML
+          # in order to sanitize it. https://hexdocs.pm/mdex/MDEx.html#module-sanitize
+          MDEx.to_html(text,
+            extension: [
+              strikethrough: true,
+              tagfilter: true,
+              table: true,
+              autolink: true,
+              tasklist: true,
+              footnotes: true,
+              shortcodes: true
+            ],
+            parse: [
+              smart: true,
+              relaxed_tasklist_matching: true,
+              relaxed_autolinks: true
+            ],
+            render: [
+              github_pre_lang: true,
+              unsafe_: true
+            ],
+            sanitize: MDEx.default_sanitize_options()
+          )
+          |> case do
+            {:ok, html} ->
+              html
+              |> Phoenix.HTML.raw()
+            {:error, _} -> text
+          end
         end
       """
     end
