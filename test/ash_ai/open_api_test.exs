@@ -74,13 +74,12 @@ defmodule AshAi.OpenApiTest do
 
   defmodule Music do
     use Ash.Domain,
-    extensions: [AshAi]
+      extensions: [AshAi]
 
     resources do
       resource(Artist)
       resource(Album)
     end
-
   end
 
   defmodule Sentiment do

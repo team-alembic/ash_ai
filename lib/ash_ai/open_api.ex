@@ -1,4 +1,5 @@
 defmodule AshAi.OpenApi do
+  @moduledoc false
   @typep content_type_format() :: :json | :multipart
 
   @spec resource_write_attribute_type(
@@ -744,7 +745,7 @@ defmodule AshAi.OpenApi do
     key = if Map.has_key?(schema, :description), do: :description, else: "description"
 
     new_description =
-      if is_nil(fields) || attr.name in fields do
+      if attr.name in fields do
         case Map.get(schema, key) do
           nil ->
             "Field included by default."

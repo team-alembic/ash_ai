@@ -1,4 +1,5 @@
 defmodule AshAi.Serializer do
+  @moduledoc false
   @doc false
   def serialize_value(value, type, constraints, domain, opts \\ [])
 
@@ -190,8 +191,8 @@ defmodule AshAi.Serializer do
   defp include_nil_values?(_request, %_resource{} = _record) do
     # Before used AshJsonApi.Resource option,
     # if not set defaulted to AshJsonApi.Domain :include_nil_values? option
-    # which defaulted to true, so leaving this true
-    true
+    # which defaulted to true, so leaving this false
+    false
   end
 
   defp only_primary_key?(resource, field) do

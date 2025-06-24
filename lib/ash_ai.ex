@@ -503,7 +503,7 @@ defmodule AshAi do
               |> Ash.Query.do_filter(filter)
               |> Ash.Query.limit(1)
               |> Ash.bulk_update!(
-                action,
+                action.name,
                 input,
                 Keyword.merge(opts,
                   return_errors?: true,
@@ -534,7 +534,7 @@ defmodule AshAi do
               |> Ash.Query.do_filter(filter)
               |> Ash.Query.limit(1)
               |> Ash.bulk_destroy!(
-                action,
+                action.name,
                 input,
                 Keyword.merge(opts,
                   return_errors?: true,
