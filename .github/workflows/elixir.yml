@@ -15,3 +15,4 @@ jobs:
     with:
       postgres: true
       postgres-image: "pgvector/pgvector:pg17"
+      tenants: false
