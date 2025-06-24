@@ -8,7 +8,6 @@ defmodule AshAi.Actions.Prompt.Adapter.StructuredOutput do
 
   alias AshAi.Actions.Prompt.Adapter.Data
   alias LangChain.Chains.LLMChain
-  alias LangChain.Message
 
   def run(%Data{} = data, _opts) do
     if !Map.has_key?(data.llm, :json_schema) do
@@ -30,10 +29,7 @@ defmodule AshAi.Actions.Prompt.Adapter.StructuredOutput do
         json_response: true
       })
 
-    messages = [
-      Message.new_system!(data.system_prompt),
-      Message.new_user!(data.user_message)
-    ]
+    messages = data.messages
 
     %{
       llm: llm,
@@ -41,7 +37,7 @@ defmodule AshAi.Actions.Prompt.Adapter.StructuredOutput do
       custom_context: Map.new(Ash.Context.to_opts(data.context))
     }
     |> LLMChain.new!()
-    |> LLMChain.add_messages(messages)
+    |> AshAi.Actions.Prompt.Adapter.Helpers.add_messages_with_templates(messages, data)
     |> LLMChain.add_tools(data.tools)
     |> LLMChain.run(mode: :while_needs_response)
     |> case do

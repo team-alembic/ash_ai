@@ -35,9 +35,8 @@ defmodule AshAi.Actions.Prompt.Adapter do
     defstruct [
       :llm,
       :input,
-      :system_prompt,
+      :messages,
       :verbose?,
-      :user_message,
       :json_schema,
       :tools,
       :context
@@ -46,8 +45,7 @@ defmodule AshAi.Actions.Prompt.Adapter do
     @type t :: %__MODULE__{
             llm: term(),
             input: Ash.ActionInput.t(),
-            system_prompt: String.t(),
-            user_message: String.t(),
+            messages: list(),
             json_schema: map(),
             tools: list(),
             verbose?: boolean(),

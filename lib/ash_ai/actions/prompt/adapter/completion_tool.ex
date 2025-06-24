@@ -13,14 +13,9 @@ defmodule AshAi.Actions.Prompt.Adapter.CompletionTool do
 
   alias AshAi.Actions.Prompt.Adapter.Data
   alias LangChain.Chains.LLMChain
-  alias LangChain.Message
-  alias LangChain.Message.ContentPart
 
   def run(%Data{} = data, opts) do
-    messages = [
-      [ContentPart.text!(data.system_prompt, cache_control: true)] |> Message.new_system!(),
-      Message.new_user!(data.user_message)
-    ]
+    messages = data.messages
 
     max_runs = opts[:max_runs] || 25
 
@@ -84,7 +79,7 @@ defmodule AshAi.Actions.Prompt.Adapter.CompletionTool do
       custom_context: Map.new(Ash.Context.to_opts(data.context))
     }
     |> LLMChain.new!()
-    |> LLMChain.add_messages(messages)
+    |> AshAi.Actions.Prompt.Adapter.Helpers.add_messages_with_templates(messages, data)
     |> LLMChain.add_tools([completion_tool | data.tools])
     |> LLMChain.run_until_tool_used("complete_request", max_runs: max_runs)
     |> case do

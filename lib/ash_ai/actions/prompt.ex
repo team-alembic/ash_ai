@@ -58,10 +58,8 @@ defmodule AshAi.Actions.Prompt do
   with the input and the context, useful for dynamically selecting the model.
 
   ## Dynamic Configuration (using 2-arity function)
-
   For runtime configuration (like using environment variables), pass a function
   as the first argument to `prompt/2`:
-
       run prompt(
         fn _input, _context ->
           LangChain.ChatModels.ChatOpenAI.new!(%{
@@ -74,31 +72,98 @@ defmodule AshAi.Actions.Prompt do
         tools: false
       )
 
+
   This function will be executed just before the prompt is sent to the LLM.
 
   ## Options
 
   - `:tools`: A list of tool names to expose to the agent call.
   - `:verbose?`: Set to `true` for more output to be logged.
-  - `:prompt`: A custom prompt as an `EEx` template. See the prompt section below.
+  - `:prompt`: A custom prompt. Supports multiple formats - see the prompt section below.
 
   ## Prompt
 
   The prompt by default is generated using the action and input descriptions. You can provide your own prompt
-  via the `prompt` option which will be able to reference `@input` and `@context`.
+  via the `prompt` option which supports multiple formats based on the type of data provided:
 
-  The prompt can be a string or a tuple of two strings. The first string is the system prompt and the second string is the user message.
-  If no user message is provided, the user message will be "perform the action". Both are treated as EEx templates.
+  ### Supported Formats
 
-  We have found that the "3rd party" style description writing paired with the format we provide by default to be
-  a good basis point for LLMs who are meant to accomplish a task. With this in mind, for refining your prompt,
-  first try describing via the action description that desired outcome or operating basis of the action, as well
-  as how the LLM is meant to use them. State these passively as facts. For example, above we used: "Does not consider swear
-  words as inherently negative" instead of instructing the LLM via "Do not consider swear words as inherently negative".
+  1. **String (EEx template)**: `"Analyze this: <%= @input.arguments.text %>"`
+  2. **{System, User} tuple**: `{"You are an expert", "Analyze the sentiment"}`
+  3. **Function**: `fn input, context -> {"Dynamic system", "Dynamic user"} end`
+  4. **List of LangChain Messages**: `[Message.new_system!("..."), Message.new_user!("...")]`
+  5. **Function returning Messages**: `fn input, context -> [Message.new_system!("...")] end`
 
-  You are of course free to use any prompting pattern you prefer, but the end result of the above prompting pattern
-  leads to having a great description of your actual logic, acting both as documentation and instructions to the
-  LLM that executes the action.
+  ### Examples
+
+  #### Basic String Template
+  ```elixir
+  run prompt(
+    ChatOpenAI.new!(%{model: "gpt-4o"}),
+    prompt: "Analyze the sentiment of: <%= @input.arguments.text %>"
+  )
+  ```
+
+  #### System/User Tuple
+  ```elixir
+  run prompt(
+    ChatOpenAI.new!(%{model: "gpt-4o"}),
+    prompt: {"You are a sentiment analyzer", "Analyze: <%= @input.arguments.text %>"}
+  )
+  ```
+
+  #### LangChain Messages for Multi-turn Conversations
+  ```elixir
+  run prompt(
+    ChatOpenAI.new!(%{model: "gpt-4o"}),
+    prompt: [
+      Message.new_system!("You are an expert assistant"),
+      Message.new_user!("Hello, how can you help me?"),
+      Message.new_assistant!("I can help with various tasks"),
+      Message.new_user!("Great! Please analyze this data")
+    ]
+  )
+  ```
+
+  #### Image Analysis with Templates
+  ```elixir
+  run prompt(
+    ChatOpenAI.new!(%{model: "gpt-4o"}),
+    prompt: [
+      Message.new_system!("You are an expert at image analysis"),
+      Message.new_user!([
+        PromptTemplate.from_template!("Extra context: <%= @input.arguments.context %>"),
+        ContentPart.image!("<%= @input.arguments.image_data %>", media: :jpg, detail: "low")
+      ])
+    ]
+  )
+  ```
+
+  #### Dynamic Messages via Function
+  ```elixir
+  run prompt(
+    ChatOpenAI.new!(%{model: "gpt-4o"}),
+    prompt: fn input, context ->
+      base = [Message.new_system!("You are helpful")]
+
+      history = input.arguments.conversation_history
+      |> Enum.map(fn %{"role" => role, "content" => content} ->
+        case role do
+          "user" -> Message.new_user!(content)
+          "assistant" -> Message.new_assistant!(content)
+        end
+      end)
+
+      base ++ history
+    end
+  )
+  ```
+
+  ### Template Processing
+
+  - **String prompts**: Processed as EEx templates with `@input` and `@context`
+  - **Messages with PromptTemplate**: Processed using LangChain's `apply_prompt_templates`
+  - **Functions**: Can return any supported format for dynamic generation
 
   The default prompt template is:
 
@@ -110,16 +175,18 @@ defmodule AshAi.Actions.Prompt do
 
   def run(input, opts, context) do
     llm = get_llm(opts, input, context)
+
     json_schema = get_json_schema(input)
     {adapter, adapter_opts} = get_adapter(opts, llm)
-    {system_prompt, user_message} = get_prompts(input, opts, context)
+
     tools = get_tools(opts, input, context)
+
+    messages = get_messages(input, opts, context)
 
     data = %AshAi.Actions.Prompt.Adapter.Data{
       llm: llm,
       input: input,
-      system_prompt: system_prompt,
-      user_message: user_message,
+      messages: messages,
       json_schema: json_schema,
       tools: tools,
       verbose?: opts[:verbose?] || false,
@@ -202,6 +269,7 @@ defmodule AshAi.Actions.Prompt do
             AshAi.Actions.Prompt.Adapter.StructuredOutput
 
           %LangChain.ChatModels.ChatOpenAI{endpoint: endpoint} when not is_nil(endpoint) ->
+            # For non-OpenAI endpoints, use RequestJson
             AshAi.Actions.Prompt.Adapter.RequestJson
 
           %LangChain.ChatModels.ChatAnthropic{} ->
@@ -223,19 +291,71 @@ defmodule AshAi.Actions.Prompt do
   end
 
   # sobelow_skip ["RCE.EEx"]
-  defp get_prompts(input, opts, context) do
+  defp get_messages(input, opts, context) do
+    template_vars = %{input: input, context: context}
+
     case Keyword.get(opts, :prompt, @prompt_template) do
-      {prompt, user_message} ->
-        prompt = EEx.eval_string(prompt, assigns: [input: input, context: context])
+      # Format 1: String (EEx template)
+      prompt when is_binary(prompt) ->
+        system_prompt = EEx.eval_string(prompt, assigns: [input: input, context: context])
 
-        user_message =
-          EEx.eval_string(user_message, assigns: [input: input, context: context])
+        [
+          LangChain.Message.new_system!(system_prompt),
+          LangChain.Message.new_user!("Perform the action")
+        ]
 
-        {prompt, user_message}
+      # Format 2: Tuple {system, user} (EEx templates)
+      {system, user} when is_binary(system) and is_binary(user) ->
+        system_prompt = EEx.eval_string(system, assigns: [input: input, context: context])
+        user_message = EEx.eval_string(user, assigns: [input: input, context: context])
 
-      prompt ->
-        prompt = EEx.eval_string(prompt, assigns: [input: input, context: context])
-        {prompt, "Perform the action"}
+        [
+          LangChain.Message.new_system!(system_prompt),
+          LangChain.Message.new_user!(user_message)
+        ]
+
+      # Format 3: Messages list (LangChain Messages)
+      messages when is_list(messages) ->
+        process_message_templates(messages, template_vars)
+
+      # Format 4: Function returning any of the above
+      func when is_function(func, 2) ->
+        result = func.(input, context)
+        get_messages_from_result(result, input, context)
     end
+  end
+
+  defp get_messages_from_result(result, input, context) do
+    case result do
+      prompt when is_binary(prompt) ->
+        get_messages(input, [prompt: prompt], context)
+
+      {system, user} when is_binary(system) and is_binary(user) ->
+        get_messages(input, [prompt: {system, user}], context)
+
+      messages when is_list(messages) ->
+        get_messages(input, [prompt: messages], context)
+
+      _ ->
+        raise ArgumentError,
+              "Function must return string, {system, user} tuple, or list of Messages. Got: #{inspect(result)}"
+    end
+  end
+
+  defp process_message_templates(messages, template_vars) do
+    if AshAi.Actions.Prompt.Adapter.Helpers.has_prompt_templates?(messages) do
+      temp_chain = LangChain.Chains.LLMChain.new!(%{llm: create_dummy_llm()})
+
+      processed_chain =
+        LangChain.Chains.LLMChain.apply_prompt_templates(temp_chain, messages, template_vars)
+
+      processed_chain.messages
+    else
+      messages
+    end
+  end
+
+  defp create_dummy_llm do
+    LangChain.ChatModels.ChatOpenAI.new!(%{model: "gpt-3.5-turbo"})
   end
 end
