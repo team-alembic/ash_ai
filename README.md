@@ -1,6 +1,32 @@
 # Ash AI
 <img src="https://github.com/ash-project/ash_ai/blob/main/logos/ash_ai.png?raw=true" alt="Logo" width="300"/>
 
+## Installation
+
+<!-- tabs-open -->
+
+### With Igniter
+
+You can install `AshAi` using igniter. For example:
+```sh
+mix igniter.install ash_ai
+```
+
+### Manually
+
+Add `AshAi` to your list of dependencies:
+
+```elixir
+def deps do
+  [
+    {:ash_ai, "~> 0.2"}
+  ]
+end
+```
+
+<!-- tabs-close -->
+
+
 ## MCP (Model Context Protocol) Server
 
 Both the dev & production MCP servers can be installed with
