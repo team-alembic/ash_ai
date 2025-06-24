@@ -14,4 +14,4 @@ jobs:
       HEX_API_KEY: ${{ secrets.HEX_API_KEY }}
     with:
       postgres: true
-      postgres-image: "pgvector/pgvector"
+      postgres-image: "pgvector/pgvector:pg17"
