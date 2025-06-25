@@ -212,9 +212,9 @@ For runtime configuration (like environment variables), use a function to define
 ```elixir
 action :analyze_sentiment, :atom do
   argument :text, :string, allow_nil?: false
-  
+
   run prompt(
-    fn _input, _context -> 
+    fn _input, _context ->
       LangChain.ChatModels.ChatOpenAI.new!(%{
         model: "gpt-4o",
         # this can also be configured in application config, see langchain docs for more.
@@ -231,11 +231,135 @@ The function receives:
 1. `input` - The action input
 2. `context` - The execution context
 
+### Prompt Format Options
+
+The `prompt` option supports multiple formats for maximum flexibility:
+
+#### 1. String (EEx Template)
+Simple string templates with access to `@input` and `@context`:
+
+```elixir
+run prompt(
+  ChatOpenAI.new!(%{model: "gpt-4o"}),
+  prompt: "Analyze the sentiment of: <%= @input.arguments.text %>"
+)
+```
+
+#### 2. System/User Tuple
+Separate system and user messages (both support EEx templates):
+
+```elixir
+run prompt(
+  ChatOpenAI.new!(%{model: "gpt-4o"}),
+  prompt: {"You are a sentiment analyzer", "Analyze: <%= @input.arguments.text %>"}
+)
+```
+
+#### 3. LangChain Messages List
+For complex multi-turn conversations or image analysis:
+
+```elixir
+run prompt(
+  ChatOpenAI.new!(%{model: "gpt-4o"}),
+  prompt: [
+    Message.new_system!("You are an expert assistant"),
+    Message.new_user!("Hello, how can you help me?"),
+    Message.new_assistant!("I can help with various tasks"),
+    Message.new_user!("Great! Please analyze this data")
+  ]
+)
+```
+
+For image analysis with templates:
+
+```elixir
+run prompt(
+  ChatOpenAI.new!(%{model: "gpt-4o"}),
+  prompt: [
+    Message.new_system!("You are an expert at image analysis"),
+    Message.new_user!([
+      PromptTemplate.from_template!("Extra context: <%= @input.arguments.context %>"),
+      ContentPart.image!("<%= @input.arguments.image_data %>", media: :jpg, detail: "low")
+    ])
+  ]
+)
+```
+
+#### 4. Dynamic Function
+Return any of the above formats dynamically based on input:
+
+```elixir
+run prompt(
+  ChatOpenAI.new!(%{model: "gpt-4o"}),
+  prompt: fn input, context ->
+    base = [Message.new_system!("You are helpful")]
+
+    history = input.arguments.conversation_history
+    |> Enum.map(fn %{"role" => role, "content" => content} ->
+      case role do
+        "user" -> Message.new_user!(content)
+        "assistant" -> Message.new_assistant!(content)
+      end
+    end)
+
+    base ++ history
+  end
+)
+```
+
+#### Template Processing
+
+- **String prompts**: Processed as EEx templates with `@input` and `@context` variables
+- **Messages with PromptTemplate**: Processed using LangChain's `apply_prompt_templates`
+- **Functions**: Can return any supported format for dynamic generation
+
+If no custom prompt is provided, a default template is used that includes the action name, description, and argument details.
+
+### Adapters
+
+Adapters control how the LLM is called to generate structured outputs. AshAi automatically selects the appropriate adapter based on your LLM, but you can override this with the `:adapter` option.
+
+#### Default Adapter Selection
+
+- **OpenAI API endpoints**: Uses `AshAi.Actions.Prompt.Adapter.StructuredOutput` (leverages OpenAI's structured output features)
+- **Non-OpenAI endpoints**: Uses `AshAi.Actions.Prompt.Adapter.RequestJson` (requests JSON in the prompt)
+- **Anthropic**: Uses `AshAi.Actions.Prompt.Adapter.CompletionTool` (uses tool calling for structured outputs)
+
+#### Custom Adapter Configuration
+
+You can specify a custom adapter or adapter options:
+
+```elixir
+# Use a specific adapter
+run prompt(
+  ChatOpenAI.new!(%{model: "gpt-4o"}),
+  adapter: AshAi.Actions.Prompt.Adapter.RequestJson,
+  tools: false
+)
+
+# Use an adapter with custom options
+run prompt(
+  ChatOpenAI.new!(%{model: "gpt-4o"}),
+  adapter: {AshAi.Actions.Prompt.Adapter.StructuredOutput, [some_option: :value]},
+  tools: false
+)
+```
+
+#### Available Adapters
+
+- **`StructuredOutput`**: Best for OpenAI models, uses native structured output capabilities
+- **`RequestJson`**: Works with any model, requests JSON format in the prompt
+- **`CompletionTool`**: Uses tool calling to generate structured outputs, good for models that support function calling
+
 ### Best Practices for Prompt-Backed Actions
 
 - Write clear, detailed descriptions for the action and its arguments
 - Use constraints when appropriate to restrict outputs
-- Consider providing a custom prompt for more complex tasks
+- Choose the appropriate prompt format for your use case:
+  - Simple string templates for basic prompts
+  - System/user tuples for role-based interactions
+  - Message lists for complex conversations or multi-modal inputs
+  - Functions for dynamic prompt generation
 - Test thoroughly with different inputs to ensure reliable results
 
 ## Model Context Protocol (MCP) Server
