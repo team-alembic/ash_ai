@@ -5,6 +5,23 @@ See [Conventional Commits](Https://conventionalcommits.org) for commit guideline
 
 <!-- changelog -->
 
+## [v0.2.3](https://github.com/ash-project/ash_ai/compare/v0.2.2...v0.2.3) (2025-06-25)
+
+
+
+
+### Bug Fixes:
+
+* unsafe usage in mdex (#73) by [@TwistingTwists](https://github.com/TwistingTwists)
+
+### Improvements:
+
+* update usage rules w/ more prompt actions by [@zachdaniel](https://github.com/zachdaniel)
+
+* multi-provider support prerequisite - eliminate open api spex reliance (#64) by KasparKipp
+
+* Support various additional prompt formats (#72) by [@TwistingTwists](https://github.com/TwistingTwists)
+
 ## [v0.2.2](https://github.com/ash-project/ash_ai/compare/v0.2.1...v0.2.2) (2025-06-11)
 
 
