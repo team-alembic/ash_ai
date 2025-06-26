@@ -37,9 +37,7 @@ if Code.ensure_loaded?(Igniter) do
         schema: [
           yes: :boolean
         ],
-        installs: [
-          usage_rules: "~> 0.1"
-        ],
+        installs: [],
         example: __MODULE__.Docs.example()
       }
     end
@@ -49,12 +47,15 @@ if Code.ensure_loaded?(Igniter) do
       igniter
       |> Igniter.Project.Formatter.import_dep(:ash_ai)
       |> add_dev_mcp()
-      |> Igniter.compose_task("usage_rules.sync", [
-        "AGENTS.md",
-        "--all",
-        "--link-to-folder",
-        "deps"
-      ])
+      |> then(fn igniter ->
+        if Igniter.Project.Deps.has_dep?(igniter, :usage_rules) do
+          igniter
+        else
+          igniter
+          |> Igniter.Project.Deps.add_dep({:usage_rules, "~> 0.1"})
+          |> Igniter.compose_task("usage_rules.install")
+        end
+      end)
     end
 
     defp add_dev_mcp(igniter) do
