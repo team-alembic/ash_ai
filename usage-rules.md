@@ -162,6 +162,55 @@ defmodule MyApp.Blog do
 end
 ```
 
+### Tool Data Access Rules
+
+Tools have different access levels for different operations:
+
+1. **Filtering/Sorting/Aggregation**: Only attributes with `public?: true` can be used
+2. **Arguments**: Only action arguments with `public?: true` are exposed to tools
+3. **Response data**: Public attributes are returned by default
+4. **Loading data**: The `load` option is used to include relationships, calculations, or additional attributes in responses (both public and private)
+
+Example:
+
+```elixir
+# Resource definition
+defmodule MyApp.Blog.Post do
+  attributes do
+    attribute :title, :string, public?: true
+    attribute :content, :string, public?: true
+    attribute :internal_notes, :string  # Default is public?: false
+    attribute :view_count, :integer, public?: true
+  end
+  
+  relationships do
+    belongs_to :author, MyApp.Accounts.User, public?: true
+  end
+end
+
+# Tool definition
+tools do
+  # Returns only public attributes (title, content, view_count)
+  tool :read_posts, MyApp.Blog.Post, :read
+  
+  # Returns public attributes plus loaded fields (including private ones)
+  tool :read_posts_with_all_details, MyApp.Blog.Post, :read do
+    load [:author, :internal_notes]
+  end
+end
+```
+
+With this configuration:
+- Tools can only filter/sort by `title`, `content`, and `view_count`
+- `internal_notes` cannot be used for filtering, sorting, or aggregation
+- `internal_notes` CAN be returned when explicitly loaded via the `load` option
+- The `author` relationship can include both public and private attributes when loaded
+
+This provides flexibility while maintaining control over data access:
+- Private data is protected from queries and operations
+- Private data can still be included in responses when explicitly loaded
+- The `load` option serves dual purposes: loading relationships/calculations and making any loaded attributes visible (including private ones)
+
 ### Using Tools in LangChain
 
 Add your Ash AI tools to a LangChain chain:

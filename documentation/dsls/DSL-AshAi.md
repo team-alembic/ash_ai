@@ -22,6 +22,11 @@ tool name, resource, action
 ```
 
 
+Expose an Ash action as a tool that can be called by LLMs.
+
+Tools allow LLMs to interact with your application by calling specific actions on resources.
+Only public attributes can be used for filtering, sorting, and aggregation, but the `load`
+option allows including private attributes in the response data.
 
 
 
@@ -39,7 +44,7 @@ tool name, resource, action
 
 | Name | Type | Default | Docs |
 |------|------|---------|------|
-| [`load`](#tools-tool-load){: #tools-tool-load } | `any` | `[]` |  |
+| [`load`](#tools-tool-load){: #tools-tool-load } | `any` | `[]` | A list of relationships and calculations to load on the returned records. Note that loaded fields can include private attributes, which will then be included in the tool's response. However, private attributes cannot be used for filtering, sorting, or aggregation. |
 | [`async`](#tools-tool-async){: #tools-tool-async } | `boolean` | `true` |  |
 | [`description`](#tools-tool-description){: #tools-tool-description } | `String.t` |  | A description for the tool. Defaults to the action's description. |
 | [`identity`](#tools-tool-identity){: #tools-tool-identity } | `atom` |  | The identity to use for update/destroy actions. Defaults to the primary key. Set to `false` to disable entirely. |

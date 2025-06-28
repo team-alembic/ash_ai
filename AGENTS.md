@@ -74,8 +74,25 @@ mix test.full_reset
    ```elixir
    tools do
      tool :tool_name, Resource, :action_name
+     
+     # With custom description
+     tool :read_posts, Post, :read do
+       description "Read all blog posts with optional filtering"
+     end
+     
+     # With loading relationships/calculations
+     tool :read_posts_with_author, Post, :read do
+       load [:author, :comment_count]
+     end
    end
    ```
+   
+   **Important Tool Considerations:**
+   - Only public attributes (`public?: true`) are accessible for filtering, sorting, and aggregation
+   - Private attributes cannot be filtered, sorted, or used in aggregates
+   - Use the `load` option to include relationships, calculations, or additional attributes in responses
+   - When using `load`, even private attributes become visible in tool responses
+   - Tool descriptions help LLMs understand when and how to use each tool
 
 3. **Prompt-Backed Actions**: Actions where the implementation is delegated to an LLM using structured outputs to ensure type safety.
 

@@ -77,11 +77,23 @@ defmodule AshAi do
   @tool %Spark.Dsl.Entity{
     name: :tool,
     target: Tool,
+    describe: """
+    Expose an Ash action as a tool that can be called by LLMs.
+
+    Tools allow LLMs to interact with your application by calling specific actions on resources.
+    Only public attributes can be used for filtering, sorting, and aggregation, but the `load`
+    option allows including private attributes in the response data.
+    """,
     schema: [
       name: [type: :atom, required: true],
       resource: [type: {:spark, Ash.Resource}, required: true],
       action: [type: :atom, required: true],
-      load: [type: :any, default: []],
+      load: [
+        type: :any,
+        default: [],
+        doc:
+          "A list of relationships and calculations to load on the returned records. Note that loaded fields can include private attributes, which will then be included in the tool's response. However, private attributes cannot be used for filtering, sorting, or aggregation."
+      ],
       async: [type: :boolean, default: true],
       description: [
         type: :string,

@@ -157,6 +157,32 @@ end
 Expose these actions as tools. When you call `AshAi.setup_ash_ai(chain, opts)`, or `AshAi.iex_chat/2`
 it will add those as tool calls to the agent.
 
+### Tool Data Access
+
+**Important**: Tools have different access levels for different operations:
+- **Filtering/Sorting/Aggregation**: Only public attributes (`public?: true`) can be used
+- **Arguments**: Only public action arguments are exposed
+- **Response data**: Public attributes are returned by default
+- **Loading data**: Use the `load` option to include relationships, calculations, or additional attributes (including private ones) in responses
+
+Example:
+```elixir
+tools do
+  # Returns only public attributes
+  tool :read_posts, MyApp.Blog.Post, :read
+  
+  # Returns public attributes AND loaded relationships/calculations
+  # Note: loaded fields can include private attributes
+  tool :read_posts_with_details, MyApp.Blog.Post, :read,
+    load: [:author, :comment_count, :internal_notes]
+end
+```
+
+Key distinction:
+- Private attributes cannot be used for filtering, sorting, or aggregation
+- Private attributes CAN be included in responses when using the `load` option
+- The `load` option is primarily for loading relationships and calculations, but also makes any loaded attributes (including private ones) visible
+
 ## Prompt-backed actions
 
 This allows defining an action, including input and output types, and delegating the
