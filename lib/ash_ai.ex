@@ -1077,18 +1077,22 @@ defmodule AshAi do
     end
   rescue
     e ->
-      reraise """
-              Error raised while checking permissions for #{inspect(resource)}.#{action}
+      Logger.error(
+        """
+        Error raised while checking permissions for #{inspect(resource)}.#{action}
 
-              When checking permissions, we check the action using an empty input.
-              Your action should be prepared for this.
+        When checking permissions, we check the action using an empty input.
+        Your action should be prepared for this.
 
-              For create/update/destroy actions, you may need to add `only_when_valid?: true` 
-              to the changes, for other things, you may want to check validity of the changeset,
-              query or action input.
+        For create/update/destroy actions, you may need to add `only_when_valid?: true` 
+        to the changes, for other things, you may want to check validity of the changeset,
+        query or action input.
 
-              #{Exception.format(:error, e, __STACKTRACE__)}
-              """,
-              __STACKTRACE__
+        #{Exception.format(:error, e, __STACKTRACE__)}
+        """,
+        __STACKTRACE__
+      )
+
+      false
   end
 end
