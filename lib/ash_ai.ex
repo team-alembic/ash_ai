@@ -1064,12 +1064,31 @@ defmodule AshAi do
   end
 
   defp can?(actor, domain, resource, action, tenant) do
-    Ash.can?({resource, action}, actor,
-      tenant: tenant,
-      domain: domain,
-      maybe_is: true,
-      run_queries?: false,
-      pre_flight?: false
-    )
+    if Enum.empty?(Ash.Resource.Info.authorizers(resource)) do
+      true
+    else
+      Ash.can?({resource, action}, actor,
+        tenant: tenant,
+        domain: domain,
+        maybe_is: true,
+        run_queries?: false,
+        pre_flight?: false
+      )
+    end
+  rescue
+    e ->
+      reraise """
+              Error raised while checking permissions for #{inspect(resource)}.#{action}
+
+              When checking permissions, we check the action using an empty input.
+              Your action should be prepared for this.
+
+              For create/update/destroy actions, you may need to add `only_when_valid?: true` 
+              to the changes, for other things, you may want to check validity of the changeset,
+              query or action input.
+
+              #{Exception.format(:error, e, __STACKTRACE__)}
+              """,
+              __STACKTRACE__
   end
 end
