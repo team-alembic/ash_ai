@@ -5,6 +5,27 @@ See [Conventional Commits](Https://conventionalcommits.org) for commit guideline
 
 <!-- changelog -->
 
+## [v0.2.4](https://github.com/ash-project/ash_ai/compare/v0.2.3...v0.2.4) (2025-07-02)
+
+
+
+
+### Bug Fixes:
+
+* allow for a custom json_processor (#80) by [@TwistingTwists](https://github.com/TwistingTwists)
+
+* changed chat-live message history order before adding it to langchain (#78) by srmico
+
+* crash with embedded resource (#77) by [@nallwhy](https://github.com/nallwhy)
+
+### Improvements:
+
+* add documentation for tool private attribute behavior (#81) by marot
+
+* add documentation for tool private attribute behavior by marot
+
+* install usage rules better by [@zachdaniel](https://github.com/zachdaniel)
+
 ## [v0.2.3](https://github.com/ash-project/ash_ai/compare/v0.2.2...v0.2.3) (2025-06-25)
 
 
