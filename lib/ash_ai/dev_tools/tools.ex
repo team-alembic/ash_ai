@@ -37,6 +37,10 @@ defmodule AshAi.DevTools.Tools do
       constraints: [
         fields: [
           package: [type: :string, allow_nil?: false, description: "The name of the package"],
+          sub_rule: [
+            type: :string,
+            description: "The name of the sub-rule within the package"
+          ],
           package_description: [
             type: :string,
             allow_nil?: false,
@@ -81,27 +85,48 @@ defmodule AshAi.DevTools.Tools do
           path = Path.relative_to_cwd(path)
 
           description =
-            case Application.spec(name, :description) do
-              nil -> ""
-              desc -> to_string(desc)
+            if name == :usage_rules do
+              "general usage rules"
+            else
+              case Application.spec(name, :description) do
+                nil -> ""
+                desc -> to_string(desc)
+              end
+            end
+
+          usage_rules =
+            path
+            |> Path.join("usage-rules.md")
+            |> File.exists?()
+            |> case do
+              true ->
+                [
+                  %{
+                    package: to_string(name),
+                    package_description: description,
+                    file_path: Path.join(path, "usage-rules.md")
+                  }
+                ]
+
+              false ->
+                []
             end
 
           path
-          |> Path.join("usage-rules.md")
-          |> File.exists?()
-          |> case do
-            true ->
-              [
-                %{
-                  package: to_string(name),
-                  package_description: description,
-                  file_path: Path.join(path, "usage-rules.md")
-                }
-              ]
+          |> Path.join("usage-rules/*.md")
+          |> Path.wildcard()
+          |> Enum.map(fn path ->
+            sub_rule =
+              Path.basename(path, ".md")
 
-            false ->
-              []
-          end
+            %{
+              package: to_string(name),
+              sub_rule: sub_rule,
+              package_description: description,
+              file_path: path
+            }
+          end)
+          |> then(&Enum.concat(usage_rules, &1))
         end)
         |> then(&{:ok, &1})
       end
