@@ -5,6 +5,15 @@ See [Conventional Commits](Https://conventionalcommits.org) for commit guideline
 
 <!-- changelog -->
 
+## [v0.2.5](https://github.com/ash-project/ash_ai/compare/v0.2.4...v0.2.5) (2025-07-03)
+
+
+
+
+### Improvements:
+
+* support sub rules in usage rules tools by [@zachdaniel](https://github.com/zachdaniel)
+
 ## [v0.2.4](https://github.com/ash-project/ash_ai/compare/v0.2.3...v0.2.4) (2025-07-02)
 
 
