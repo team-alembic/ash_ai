@@ -68,7 +68,7 @@ if Code.ensure_loaded?(Igniter) do
       |> configure()
       |> create_conversation(conversation, message, user)
       |> create_message(chat, conversation, message, otp_app)
-      |> add_chat_live(chat, conversation, message)
+      |> add_chat_live(chat, conversation, message, user)
       |> add_code_interfaces(chat, conversation, message, user)
       |> add_triggers(message, conversation, user)
       |> Ash.Igniter.codegen("add_ai_chat")
@@ -763,7 +763,7 @@ if Code.ensure_loaded?(Igniter) do
       end)
     end
 
-    defp add_chat_live(igniter, chat, conversation, message) do
+    defp add_chat_live(igniter, chat, conversation, message, user) do
       if igniter.args.options[:live] do
         web_module = Igniter.Libs.Phoenix.web_module(igniter)
         chat_live = Igniter.Libs.Phoenix.web_module_name(igniter, "ChatLive")
@@ -797,7 +797,7 @@ if Code.ensure_loaded?(Igniter) do
             Igniter.Project.Module.create_module(
               igniter,
               chat_live,
-              chat_live_contents(web_module, on_mount, endpoint, chat)
+              chat_live_contents(web_module, on_mount, endpoint, chat, user)
             )
             |> set_message_pub_sub(message, endpoint)
             |> set_conversation_pub_sub(conversation, endpoint)
@@ -985,7 +985,7 @@ if Code.ensure_loaded?(Igniter) do
       apply(AshOban.Igniter, :add_new_trigger, [igniter, conversation, name, code])
     end
 
-    defp chat_live_contents(web_module, on_mount, endpoint, chat) do
+    defp chat_live_contents(web_module, on_mount, endpoint, chat, user) do
       interface_name =
         if user do
           "my_conversations"
