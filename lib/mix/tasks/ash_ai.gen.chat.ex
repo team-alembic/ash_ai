@@ -752,7 +752,13 @@ if Code.ensure_loaded?(Igniter) do
             "define :my_conversations"
           )
         else
-          igniter
+          Ash.Domain.Igniter.add_new_code_interface(
+            igniter,
+            chat,
+            conversation,
+            :list_conversations,
+            "define :list_conversations, action: :read"
+          )
         end
       end)
     end
@@ -816,8 +822,8 @@ if Code.ensure_loaded?(Igniter) do
     defp add_chat_live_route(igniter, chat_live, router) do
       live =
         """
-        live \"/chat\", #{inspect(Module.split(chat_live) |> Enum.drop(1) |> Module.concat())}
-        live \"/chat/:conversation_id\", #{inspect(Module.split(chat_live) |> Enum.drop(1) |> Module.concat())}
+            live \"/chat\", #{inspect(Module.split(chat_live) |> Enum.drop(1) |> Module.concat())}
+            live \"/chat/:conversation_id\", #{inspect(Module.split(chat_live) |> Enum.drop(1) |> Module.concat())}
         """
 
       if router do
@@ -837,9 +843,10 @@ if Code.ensure_loaded?(Igniter) do
             :error ->
               {:warning,
                """
-               AshAi: Couldn't add the chat route to `#{inspect(router)}`. Please add it manually.
+               AshAi: Couldn't add the chat routes to `#{inspect(router)}`. 
+               Please add them manually.
 
-                   #{live}
+               #{live}
                """}
           end
         end)
@@ -889,13 +896,27 @@ if Code.ensure_loaded?(Igniter) do
         if exists? do
           {igniter, default}
         else
+          igniter =
+            Igniter.add_warning(igniter, """
+            `ash_ai.gen.chat` works better if a user module is known. 
+            We could not find one automatically, and one was not provided.
+
+            Please abort this command and provide one using the `--user` flag, 
+            or install `AshAuthentication` before-hand, being sure its installed
+            before this command is run.
+            """)
+
           {igniter, nil}
         end
       end
     end
 
     defp add_triggers(igniter, message, conversation, user) do
-      actor_persister = Igniter.Project.Module.module_name(igniter, "AiAgentActorPersister")
+      actor_persister =
+        if user do
+          Igniter.Project.Module.module_name(igniter, "AiAgentActorPersister")
+        end
+
       respond_worker_module_name = Module.concat([message, "Workers.Respond"])
       respond_scheduler_module_name = Module.concat([message, "Schedulers.Respond"])
 
@@ -906,32 +927,39 @@ if Code.ensure_loaded?(Igniter) do
         Module.concat([message, "Schedulers.NameConversation"])
 
       igniter
-      |> Igniter.Project.Module.find_and_update_or_create_module(
-        actor_persister,
-        """
-        use AshOban.ActorPersister
+      |> then(fn igniter ->
+        if actor_persister do
+          Igniter.Project.Module.find_and_update_or_create_module(
+            igniter,
+            actor_persister,
+            """
+            use AshOban.ActorPersister
 
-        def store(%#{inspect(user)}{id: id}), do: %{"type" => "user", "id" => id}
+            def store(%#{inspect(user)}{id: id}), do: %{"type" => "user", "id" => id}
 
-        def lookup(%{"type" => "user", "id" => id}) do
-          with {:ok, user} <- Ash.get(#{inspect(user)}, id, authorize?: false) do
-            # you can change the behavior of actions
-            # or what your policies allow
-            # using the `chat_agent?` metadata
-            {:ok, Ash.Resource.set_metadata(user, %{chat_agent?: true})}
-          end
+            def lookup(%{"type" => "user", "id" => id}) do
+              with {:ok, user} <- Ash.get(#{inspect(user)}, id, authorize?: false) do
+                # you can change the behavior of actions
+                # or what your policies allow
+                # using the `chat_agent?` metadata
+                {:ok, Ash.Resource.set_metadata(user, %{chat_agent?: true})}
+              end
+            end
+
+            # This allows you to set a default actor
+            # in cases where no actor was present
+            # when scheduling.
+            def lookup(nil), do: {:ok, nil}
+            """,
+            fn zipper -> {:ok, zipper} end
+          )
+        else
+          igniter
         end
-
-        # This allows you to set a default actor
-        # in cases where no actor was present
-        # when scheduling.
-        def lookup(nil), do: {:ok, nil}
-        """,
-        fn zipper -> {:ok, zipper} end
-      )
+      end)
       |> add_new_trigger(message, :respond, """
       trigger :respond do
-        actor_persister #{inspect(actor_persister)}
+        #{if actor_persister, do: "actor_persister #{inspect(actor_persister)}"}
         action :respond
         queue :chat_responses
         lock_for_update? false
@@ -1100,6 +1128,8 @@ if Code.ensure_loaded?(Igniter) do
         end
 
         def mount(_params, _session, socket) do
+          socket = assign_new(socket, :current_user, fn -> nil end)
+
           #{inspect(endpoint)}.subscribe("chat:conversations:\#{socket.assigns.current_user.id}")
 
           socket =
@@ -1107,7 +1137,7 @@ if Code.ensure_loaded?(Igniter) do
             |> assign(:page_title, "Chat")
             |> stream(
               :conversations,
-              #{inspect(chat)}.my_conversations!(actor: socket.assigns.current_user)
+              #{inspect(chat)}.list_conversations!(actor: socket.assigns.current_user)
             )
             |> assign(:messages, [])
 
