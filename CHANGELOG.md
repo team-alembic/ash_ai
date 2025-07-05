@@ -5,6 +5,17 @@ See [Conventional Commits](Https://conventionalcommits.org) for commit guideline
 
 <!-- changelog -->
 
+## [v0.2.6](https://github.com/ash-project/ash_ai/compare/v0.2.5...v0.2.6) (2025-07-05)
+
+
+
+
+### Bug Fixes:
+
+* handle missing user module more gracefully by [@zachdaniel](https://github.com/zachdaniel)
+
+* properly install usage rules by [@zachdaniel](https://github.com/zachdaniel)
+
 ## [v0.2.5](https://github.com/ash-project/ash_ai/compare/v0.2.4...v0.2.5) (2025-07-03)
 
 
