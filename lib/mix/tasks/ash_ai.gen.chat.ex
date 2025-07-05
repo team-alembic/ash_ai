@@ -986,6 +986,13 @@ if Code.ensure_loaded?(Igniter) do
     end
 
     defp chat_live_contents(web_module, on_mount, endpoint, chat) do
+      interface_name =
+        if user do
+          "my_conversations"
+        else
+          "list_conversations"
+        end
+
       """
       use #{web_module}, :live_view
       #{on_mount}
@@ -1137,7 +1144,7 @@ if Code.ensure_loaded?(Igniter) do
             |> assign(:page_title, "Chat")
             |> stream(
               :conversations,
-              #{inspect(chat)}.list_conversations!(actor: socket.assigns.current_user)
+              #{inspect(chat)}.#{interface_name}!(actor: socket.assigns.current_user)
             )
             |> assign(:messages, [])
 
