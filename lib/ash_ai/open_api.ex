@@ -1,37 +1,31 @@
 defmodule AshAi.OpenApi do
   @moduledoc false
-  @typep content_type_format() :: :json | :multipart
-
   @spec resource_write_attribute_type(
           term(),
           resource :: Ash.Resource.t(),
-          action_type :: atom,
-          format :: content_type_format()
+          action_type :: atom
         ) :: map()
   @doc false
-  def resource_write_attribute_type(attribute, resource, action_type, format \\ :json)
+  def resource_write_attribute_type(attribute, resource, action_type)
 
   def resource_write_attribute_type(
         %Ash.Resource.Aggregate{type: nil} = agg,
         resource,
-        action_type,
-        format
+        action_type
       ) do
     {type, constraints} = field_type(agg, resource)
 
     resource_write_attribute_type(
       Map.merge(agg, %{type: type, constraints: constraints}),
       resource,
-      action_type,
-      format
+      action_type
     )
   end
 
   def resource_write_attribute_type(
         %{type: {:array, type}} = attr,
         resource,
-        action_type,
-        format
+        action_type
       ) do
     %{
       type: :array,
@@ -43,8 +37,7 @@ defmodule AshAi.OpenApi do
               constraints: attr.constraints[:items] || []
           },
           resource,
-          action_type,
-          format
+          action_type
         )
     }
     |> with_attribute_description(attr)
@@ -53,8 +46,7 @@ defmodule AshAi.OpenApi do
   def resource_write_attribute_type(
         %{type: Ash.Type.Map, constraints: constraints} = attr,
         resource,
-        action_type,
-        format
+        action_type
       ) do
     if constraints[:fields] && constraints[:fields] != [] do
       %{
@@ -71,8 +63,7 @@ defmodule AshAi.OpenApi do
                }
                |> Map.put(:description, config[:description] || nil),
                resource,
-               action_type,
-               format
+               action_type
              )}
           end),
         required:
@@ -90,8 +81,7 @@ defmodule AshAi.OpenApi do
   def resource_write_attribute_type(
         %{type: Ash.Type.Union, constraints: constraints} = attr,
         resource,
-        action_type,
-        format
+        action_type
       ) do
     subtypes =
       Enum.map(constraints[:types], fn {_name, config} ->
@@ -103,7 +93,7 @@ defmodule AshAi.OpenApi do
           }
           |> Map.put(:description, config[:description] || nil)
 
-        resource_write_attribute_type(fake_attr, resource, action_type, format)
+        resource_write_attribute_type(fake_attr, resource, action_type)
       end)
 
     %{
@@ -116,18 +106,16 @@ defmodule AshAi.OpenApi do
   def resource_write_attribute_type(
         %{type: Ash.Type.Struct, constraints: constraints} = attr,
         resource,
-        action_type,
-        format
+        action_type
       ) do
     if instance_of = constraints[:instance_of] do
       if embedded?(instance_of) && !constraints[:fields] do
-        embedded_type_input(attr, action_type, format)
+        embedded_type_input(attr, action_type)
       else
         resource_write_attribute_type(
           %{attr | type: Ash.Type.Map},
           resource,
-          action_type,
-          format
+          action_type
         )
       end
     else
@@ -136,7 +124,7 @@ defmodule AshAi.OpenApi do
     |> with_attribute_description(attr)
   end
 
-  def resource_write_attribute_type(%{type: type} = attr, resource, action_type, format) do
+  def resource_write_attribute_type(%{type: type} = attr, resource, action_type) do
     cond do
       embedded?(type) ->
         embedded_type_input(attr, action_type)
@@ -148,12 +136,11 @@ defmodule AshAi.OpenApi do
         resource_write_attribute_type(
           Map.merge(attr, %{type: Ash.Type.get_type(new_type), constraints: new_constraints}),
           resource,
-          action_type,
-          format
+          action_type
         )
 
       true ->
-        resource_attribute_type(attr, resource, format)
+        resource_attribute_type(attr, resource)
     end
     |> with_attribute_description(attr)
   end
@@ -287,7 +274,7 @@ defmodule AshAi.OpenApi do
     end)
   end
 
-  defp embedded_type_input(%{type: resource} = attribute, action_type, format \\ :json) do
+  defp embedded_type_input(%{type: resource} = attribute, action_type) do
     attribute = %{
       attribute
       | constraints: Ash.Type.NewType.constraints(resource, attribute.constraints)
@@ -319,14 +306,14 @@ defmodule AshAi.OpenApi do
 
     create_write_attributes =
       if create_action do
-        write_attributes(resource, create_action.arguments, create_action, nil, format)
+        write_attributes(resource, create_action.arguments, create_action, nil)
       else
         %{}
       end
 
     update_write_attributes =
       if update_action do
-        write_attributes(resource, update_action.arguments, update_action, nil, format)
+        write_attributes(resource, update_action.arguments, update_action, nil)
       else
         %{}
       end
@@ -410,10 +397,9 @@ defmodule AshAi.OpenApi do
           resource :: module,
           [Ash.Resource.Actions.Argument.t()],
           action :: term(),
-          route :: term(),
-          format :: content_type_format()
+          route :: term()
         ) :: %{atom => map()}
-  defp write_attributes(resource, arguments, action, _route, format) do
+  defp write_attributes(resource, arguments, action, _route) do
     attributes =
       if action.type in [:action, :read] do
         %{}
@@ -422,8 +408,7 @@ defmodule AshAi.OpenApi do
         |> Ash.Resource.Info.attributes()
         |> Enum.filter(&(&1.name in action.accept && &1.writable?))
         |> Map.new(fn attribute ->
-          {attribute.name,
-           resource_write_attribute_type(attribute, resource, action.type, format)}
+          {attribute.name, resource_write_attribute_type(attribute, resource, action.type)}
         end)
       end
 
@@ -433,52 +418,49 @@ defmodule AshAi.OpenApi do
       Map.put(
         attributes,
         argument.name,
-        resource_write_attribute_type(argument, resource, :create, format)
+        resource_write_attribute_type(argument, resource, :create)
       )
     end)
   end
 
   @spec resource_attribute_type(
           term(),
-          resource :: Ash.Resource.t(),
-          format :: content_type_format()
+          resource :: Ash.Resource.t()
         ) :: map()
-  defp resource_attribute_type(type, resource, format \\ :json)
+  defp resource_attribute_type(type, resource)
 
-  defp resource_attribute_type(%Ash.Resource.Aggregate{type: nil} = agg, resource, format) do
+  defp resource_attribute_type(%Ash.Resource.Aggregate{type: nil} = agg, resource) do
     {type, constraints} = field_type(agg, resource)
 
     resource_attribute_type(
       Map.merge(agg, %{type: type, constraints: constraints}),
-      resource,
-      format
+      resource
     )
   end
 
-  defp resource_attribute_type(%{type: Ash.Type.String}, _resource, _format) do
+  defp resource_attribute_type(%{type: Ash.Type.String}, _resource) do
     %{type: :string}
   end
 
-  defp resource_attribute_type(%{type: Ash.Type.CiString}, _resource, _format) do
+  defp resource_attribute_type(%{type: Ash.Type.CiString}, _resource) do
     %{type: :string}
   end
 
-  defp resource_attribute_type(%{type: Ash.Type.Boolean}, _resource, _format) do
+  defp resource_attribute_type(%{type: Ash.Type.Boolean}, _resource) do
     %{type: :boolean}
   end
 
-  defp resource_attribute_type(%{type: Ash.Type.Decimal}, _resource, _format) do
+  defp resource_attribute_type(%{type: Ash.Type.Decimal}, _resource) do
     %{type: :string}
   end
 
-  defp resource_attribute_type(%{type: Ash.Type.Integer}, _resource, _format) do
+  defp resource_attribute_type(%{type: Ash.Type.Integer}, _resource) do
     %{type: :integer}
   end
 
   defp resource_attribute_type(
          %{type: Ash.Type.Map, constraints: constraints} = attr,
-         resource,
-         format
+         resource
        ) do
     if constraints[:fields] && constraints[:fields] != [] do
       %{
@@ -493,8 +475,7 @@ defmodule AshAi.OpenApi do
                    constraints: config[:constraints] || []
                }
                |> Map.put(:description, config[:description] || nil),
-               resource,
-               format
+               resource
              )}
           end),
         additionalProperties: false,
@@ -509,38 +490,37 @@ defmodule AshAi.OpenApi do
     end
   end
 
-  defp resource_attribute_type(%{type: Ash.Type.Float}, _resource, _format) do
+  defp resource_attribute_type(%{type: Ash.Type.Float}, _resource) do
     %{type: :number, format: :float}
   end
 
-  defp resource_attribute_type(%{type: Ash.Type.Date}, _resource, _format) do
+  defp resource_attribute_type(%{type: Ash.Type.Date}, _resource) do
     %{type: :string, format: :date}
   end
 
-  defp resource_attribute_type(%{type: Ash.Type.UtcDatetime}, _resource, _format) do
+  defp resource_attribute_type(%{type: Ash.Type.UtcDatetime}, _resource) do
     %{type: :string, format: :"date-time"}
   end
 
-  defp resource_attribute_type(%{type: Ash.Type.NaiveDatetime}, _resource, _format) do
+  defp resource_attribute_type(%{type: Ash.Type.NaiveDatetime}, _resource) do
     %{type: :string, format: :"date-time"}
   end
 
-  defp resource_attribute_type(%{type: Ash.Type.Time}, _resource, _format) do
+  defp resource_attribute_type(%{type: Ash.Type.Time}, _resource) do
     %{type: :string, format: :time}
   end
 
-  defp resource_attribute_type(%{type: Ash.Type.UUID}, _resource, _format) do
+  defp resource_attribute_type(%{type: Ash.Type.UUID}, _resource) do
     %{type: :string, format: :uuid}
   end
 
-  defp resource_attribute_type(%{type: Ash.Type.UUIDv7}, _resource, _format) do
+  defp resource_attribute_type(%{type: Ash.Type.UUIDv7}, _resource) do
     %{type: :string, format: :uuid}
   end
 
   defp resource_attribute_type(
          %{type: Ash.Type.Atom, constraints: constraints},
-         _resource,
-         _format
+         _resource
        ) do
     if one_of = constraints[:one_of] do
       %{
@@ -554,23 +534,19 @@ defmodule AshAi.OpenApi do
     end
   end
 
-  defp resource_attribute_type(%{type: Ash.Type.DurationName}, _resource, _format) do
+  defp resource_attribute_type(%{type: Ash.Type.DurationName}, _resource) do
     %{
       type: :string,
       enum: Enum.map(Ash.Type.DurationName.values(), &to_string/1)
     }
   end
 
-  defp resource_attribute_type(%{type: Ash.Type.File}, _resource, :json),
+  defp resource_attribute_type(%{type: Ash.Type.File}, _resource),
     do: %{type: :string, format: :byte, description: "Base64 encoded file content"}
-
-  defp resource_attribute_type(%{type: Ash.Type.File}, _resource, :multipart),
-    do: %{type: :string, description: "Name of multipart upload file"}
 
   defp resource_attribute_type(
          %{type: Ash.Type.Union, constraints: constraints} = attr,
-         resource,
-         format
+         resource
        ) do
     subtypes =
       Enum.map(constraints[:types], fn {_name, config} ->
@@ -582,7 +558,7 @@ defmodule AshAi.OpenApi do
           }
           |> Map.put(:description, config[:description] || nil)
 
-        resource_attribute_type(fake_attr, resource, format)
+        resource_attribute_type(fake_attr, resource)
       end)
 
     %{
@@ -592,7 +568,7 @@ defmodule AshAi.OpenApi do
     |> with_attribute_description(attr)
   end
 
-  defp resource_attribute_type(%{type: {:array, type}} = attr, resource, format) do
+  defp resource_attribute_type(%{type: {:array, type}} = attr, resource) do
     %{
       type: :array,
       items:
@@ -602,35 +578,33 @@ defmodule AshAi.OpenApi do
             | type: type,
               constraints: attr.constraints[:items] || []
           },
-          resource,
-          format
+          resource
         )
     }
   end
 
   defp resource_attribute_type(
          %{type: Ash.Type.Struct, constraints: constraints} = attr,
-         resource,
-         format
+         resource
        ) do
     if instance_of = constraints[:instance_of] do
       if embedded?(instance_of) && !constraints[:fields] do
         %{
           type: :object,
           additionalProperties: false,
-          properties: resource_attributes(instance_of, format, false),
+          properties: resource_attributes(instance_of, false),
           required: required_attributes(instance_of)
         }
         |> add_null_for_non_required()
       else
-        resource_attribute_type(%{attr | type: Ash.Type.Map}, resource, format)
+        resource_attribute_type(%{attr | type: Ash.Type.Map}, resource)
       end
     else
       %{}
     end
   end
 
-  defp resource_attribute_type(%{type: type} = attr, resource, format) do
+  defp resource_attribute_type(%{type: type} = attr, resource) do
     constraints = attr.constraints
 
     cond do
@@ -638,7 +612,7 @@ defmodule AshAi.OpenApi do
         %{
           type: :object,
           additionalProperties: false,
-          properties: resource_attributes(type, format, false),
+          properties: resource_attributes(type, false),
           required: required_attributes(type)
         }
         |> add_null_for_non_required()
@@ -649,8 +623,7 @@ defmodule AshAi.OpenApi do
 
         resource_attribute_type(
           Map.merge(attr, %{type: Ash.Type.get_type(new_type), constraints: new_constraints}),
-          resource,
-          format
+          resource
         )
 
       Spark.implements_behaviour?(type, Ash.Type.Enum) ->
@@ -666,12 +639,11 @@ defmodule AshAi.OpenApi do
 
   @spec resource_attributes(
           resource :: module,
-          format :: content_type_format(),
           hide_pkeys? :: boolean()
         ) :: %{
           atom => map()
         }
-  defp resource_attributes(resource, format, hide_pkeys?) do
+  defp resource_attributes(resource, hide_pkeys?) do
     resource
     |> Ash.Resource.Info.public_attributes()
     |> Enum.concat(Ash.Resource.Info.public_calculations(resource))
@@ -725,7 +697,7 @@ defmodule AshAi.OpenApi do
     end)
     |> Map.new(fn attr ->
       {attr.name,
-       resource_attribute_type(attr, resource, format)
+       resource_attribute_type(attr, resource)
        |> with_attribute_description(attr)
        |> with_attribute_nullability(attr)
        |> with_comment_on_included()}

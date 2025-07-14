@@ -18,41 +18,40 @@ defmodule AshAi.OpenApiTest do
       data_layer: Ash.DataLayer.Ets
 
     ets do
-      private?(true)
+      private? true
     end
 
     attributes do
-      uuid_v7_primary_key(:id, writable?: true)
-      attribute(:name, :string, public?: true)
-      attribute(:bio, Bio, allow_nil?: false, public?: true)
+      uuid_v7_primary_key :id, writable?: true
+      attribute :name, :string, public?: true
+      attribute :bio, Bio, allow_nil?: false, public?: true
     end
 
     actions do
-      default_accept([:*])
-      defaults([:create, :read, :update, :destroy])
+      default_accept [:*]
+      defaults [:create, :read, :update, :destroy]
 
       action :say_hello, :string do
-        description("Say hello")
-        argument(:name, :string, allow_nil?: false)
+        description "Say hello"
+        argument :name, :string, allow_nil?: false
 
-        run(fn input, _ ->
+        run fn input, _ ->
           {:ok, "Hello, #{input.arguments.name}!"}
-        end)
+        end
       end
     end
 
     relationships do
-      has_many(:albums, Album)
+      has_many :albums, Album
     end
 
     aggregates do
-      count(:albums_count, :albums, public?: true, sortable?: false)
+      count :albums_count, :albums, public?: true, sortable?: false
 
-      sum(:albums_copies_sold, :albums, :copies_sold,
+      sum :albums_copies_sold, :albums, :copies_sold,
         default: 0,
         public?: true,
         filterable?: false
-      )
     end
   end
 
@@ -62,22 +61,22 @@ defmodule AshAi.OpenApiTest do
       data_layer: Ash.DataLayer.Ets
 
     ets do
-      private?(true)
+      private? true
     end
 
     attributes do
-      uuid_primary_key(:id, writable?: true)
-      attribute(:title, :string)
-      attribute(:copies_sold, :integer)
+      uuid_primary_key :id, writable?: true
+      attribute :title, :string
+      attribute :copies_sold, :integer
     end
 
     relationships do
-      belongs_to(:artist, Artist)
+      belongs_to :artist, Artist
     end
 
     actions do
-      default_accept([:*])
-      defaults([:create, :read, :update, :destroy])
+      default_accept [:*]
+      defaults [:create, :read, :update, :destroy]
     end
   end
 
@@ -86,8 +85,8 @@ defmodule AshAi.OpenApiTest do
       extensions: [AshAi]
 
     resources do
-      resource(Artist)
-      resource(Album)
+      resource Artist
+      resource Album
     end
   end
 
@@ -101,23 +100,8 @@ defmodule AshAi.OpenApiTest do
     end
 
     actions do
-      default_accept([:*])
-      defaults([:create, :read])
-    end
-  end
-
-  defmodule Summary do
-    use Ash.Resource, data_layer: :embedded
-
-    attributes do
-      attribute :summary, :string, public?: true
-      attribute :word_count, :integer, public?: true
-      attribute :key_points, {:array, :string}, public?: true
-    end
-
-    actions do
-      default_accept([:*])
-      defaults([:create, :read])
+      default_accept [:*]
+      defaults [:create, :read]
     end
   end
 
@@ -128,21 +112,21 @@ defmodule AshAi.OpenApiTest do
       extensions: [AshAi]
 
     ets do
-      private?(true)
+      private? true
     end
 
     attributes do
-      uuid_v7_primary_key(:id, writable?: true)
-      attribute(:name, :string, public?: true, description: "The name of the test resource")
+      uuid_v7_primary_key :id, writable?: true
+      attribute :name, :string, public?: true, description: "The name of the test resource"
     end
 
     actions do
-      default_accept([:*])
-      defaults([:create, :read, :update, :destroy])
+      default_accept [:*]
+      defaults [:create, :read, :update, :destroy]
 
       action :analyze_sentiment, Sentiment do
-        description("Analyze the sentiment of a given text")
-        argument(:text, :string, allow_nil?: false)
+        description "Analyze the sentiment of a given text"
+        argument :text, :string, allow_nil?: false
 
         run prompt(
               fn _input, _context ->
@@ -174,44 +158,6 @@ defmodule AshAi.OpenApiTest do
                 })
               end,
               adapter: {AshAi.Actions.Prompt.Adapter.CompletionTool, [max_runs: 10]}
-            )
-      end
-
-      action :generate_summary, Summary do
-        description("Generate a summary of a document")
-        argument(:content, :string, allow_nil?: false)
-        argument(:max_words, :integer, allow_nil?: true)
-
-        run prompt(
-              fn _input, _context ->
-                ChatFaker.new!(%{
-                  expect_fun: fn _model, _messages, tools ->
-                    completion_tool = Enum.find(tools, &(&1.name == "complete_request"))
-
-                    tool_call = %LangChain.Message.ToolCall{
-                      status: :complete,
-                      type: :function,
-                      call_id: "call_456",
-                      name: "complete_request",
-                      arguments: %{
-                        "result" => %{
-                          "summary" => "A well-written document about machine learning concepts.",
-                          "word_count" => 58,
-                          "key_points" => ["AI fundamentals", "Neural networks", "Deep learning"]
-                        }
-                      },
-                      index: 0
-                    }
-
-                    {:ok,
-                     LangChain.Message.new_assistant!(%{
-                       status: :complete,
-                       tool_calls: [tool_call]
-                     })}
-                  end
-                })
-              end,
-              adapter: {AshAi.Actions.Prompt.Adapter.CompletionTool, [max_runs: 5]}
             )
       end
     end
@@ -247,7 +193,7 @@ defmodule AshAi.OpenApiTest do
             get_parameter_schema_properties(
               action,
               resource,
-              &AshAi.OpenApi.resource_write_attribute_type/4
+              &AshAi.OpenApi.resource_write_attribute_type/3
             )
             |> JSON.encode!()
             |> JSON.decode!()
@@ -256,7 +202,7 @@ defmodule AshAi.OpenApiTest do
             get_parameter_schema_properties(
               action,
               resource,
-              &AshJsonApi.OpenApi.resource_write_attribute_type/4
+              &AshJsonApi.OpenApi.resource_write_attribute_type/3
             )
             |> Schema.to_map()
 
@@ -324,8 +270,7 @@ defmodule AshAi.OpenApiTest do
             fun.(
               attribute,
               resource,
-              action.type,
-              :json
+              action.type
             )
 
           {attribute.name, value}
@@ -336,7 +281,7 @@ defmodule AshAi.OpenApiTest do
     |> Enum.filter(& &1.public?)
     |> Enum.reduce(attributes, fn argument, attributes ->
       value =
-        fun.(argument, resource, :create, :json)
+        fun.(argument, resource, :create)
 
       Map.put(
         attributes,
