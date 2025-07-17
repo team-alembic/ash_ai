@@ -5,6 +5,15 @@ See [Conventional Commits](Https://conventionalcommits.org) for commit guideline
 
 <!-- changelog -->
 
+## [v0.2.7](https://github.com/ash-project/ash_ai/compare/v0.2.6...v0.2.7) (2025-07-17)
+
+
+
+
+### Bug Fixes:
+
+* separate custom_context from llm initialization in ash_ai.gen.chat (#88) by [@germanbottosur](https://github.com/germanbottosur)
+
 ## [v0.2.6](https://github.com/ash-project/ash_ai/compare/v0.2.5...v0.2.6) (2025-07-05)
 
 
