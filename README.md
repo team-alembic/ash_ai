@@ -220,6 +220,35 @@ action :analyze_sentiment, :atom do
 end
 ```
 
+### Using Custom Types for Structured Outputs
+
+The action's return type provides the JSON schema automatically. For complex structured outputs, you can use any Ash type:
+
+```elixir
+# Example using Ash.TypedStruct
+defmodule JobListing do
+  use Ash.TypedStruct
+
+  typed_struct do
+    field :title, :string, allow_nil?: false
+    field :company, :string, allow_nil?: false
+    field :location, :string
+    field :requirements, {:array, :string}
+  end
+end
+
+# Use it as the return type for your action
+action :parse_job, JobListing do
+  argument :raw_content, :string, allow_nil?: false
+
+  run prompt(
+    LangChain.ChatModels.ChatOpenAI.new!(%{model: "gpt-4o-mini"}),
+    prompt: "Parse this job listing: <%= @input.arguments.raw_content %>",
+    tools: false
+  )
+end
+```
+
 ## Adapters
 
 Adapters are used to determine how a given LLM fulfills a prompt-backed action. The adapter is guessed automatically from the model where possible.
