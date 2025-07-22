@@ -219,7 +219,7 @@ defmodule AshAi.OpenApiTest do
                  properties: %{
                    birth: %{"anyOf" => [%{type: :string, format: :date}, %{"type" => "null"}]}
                  },
-                 required: [],
+                 required: [:birth],
                  additionalProperties: false
                }
              }
