@@ -72,6 +72,7 @@ defmodule AshAi.OpenApi do
           |> Enum.map(&elem(&1, 0))
       }
       |> add_null_for_non_required()
+      |> make_all_required()
     else
       %{type: :object}
     end
@@ -190,12 +191,16 @@ defmodule AshAi.OpenApi do
           map(),
           Ash.Resource.Attribute.t() | Ash.Resource.Actions.Argument.t() | any
         ) :: map()
+  defp with_attribute_description(schema, %{"description" => nil}) do
+    schema
+  end
+
   defp with_attribute_description(schema, %{description: nil}) do
     schema
   end
 
   defp with_attribute_description(schema, %{description: description}) do
-    Map.merge(schema, %{description: description})
+    Map.merge(schema, %{"description" => description})
   end
 
   defp with_attribute_description(schema, %{"description" => description}) do
@@ -358,6 +363,13 @@ defmodule AshAi.OpenApi do
       required: required
     }
     |> add_null_for_non_required()
+    |> make_all_required()
+  end
+
+  # this is kind of a hack, specifically because open ai requires that all fields
+  # be required. But the value can be `null`
+  defp make_all_required(map) do
+    Map.put(map, :required, Map.keys(map.properties))
   end
 
   @doc false
@@ -454,8 +466,9 @@ defmodule AshAi.OpenApi do
     %{type: :string}
   end
 
-  defp resource_attribute_type(%{type: Ash.Type.Integer}, _resource) do
+  defp resource_attribute_type(%{type: Ash.Type.Integer, constraints: constraints}, _resource) do
     %{type: :integer}
+    |> add_number_constraints(constraints)
   end
 
   defp resource_attribute_type(
@@ -485,13 +498,15 @@ defmodule AshAi.OpenApi do
           |> Enum.map(&elem(&1, 0))
       }
       |> add_null_for_non_required()
+      |> make_all_required()
     else
       %{type: :object}
     end
   end
 
-  defp resource_attribute_type(%{type: Ash.Type.Float}, _resource) do
+  defp resource_attribute_type(%{type: Ash.Type.Float, constraints: constraints}, _resource) do
     %{type: :number, format: :float}
+    |> add_number_constraints(constraints)
   end
 
   defp resource_attribute_type(%{type: Ash.Type.Date}, _resource) do
@@ -542,7 +557,7 @@ defmodule AshAi.OpenApi do
   end
 
   defp resource_attribute_type(%{type: Ash.Type.File}, _resource),
-    do: %{type: :string, format: :byte, description: "Base64 encoded file content"}
+    do: %{"type" => :string, "format" => :byte, "description" => "Base64 encoded file content"}
 
   defp resource_attribute_type(
          %{type: Ash.Type.Union, constraints: constraints} = attr,
@@ -596,6 +611,7 @@ defmodule AshAi.OpenApi do
           required: required_attributes(instance_of)
         }
         |> add_null_for_non_required()
+        |> make_all_required()
       else
         resource_attribute_type(%{attr | type: Ash.Type.Map}, resource)
       end
@@ -616,6 +632,7 @@ defmodule AshAi.OpenApi do
           required: required_attributes(type)
         }
         |> add_null_for_non_required()
+        |> make_all_required()
 
       Ash.Type.NewType.new_type?(type) ->
         new_constraints = Ash.Type.NewType.constraints(type, constraints)
@@ -701,6 +718,24 @@ defmodule AshAi.OpenApi do
        |> with_attribute_description(attr)
        |> with_attribute_nullability(attr)
        |> with_comment_on_included()}
+    end)
+  end
+
+  defp add_number_constraints(schema, constraints) do
+    constraints
+    |> Keyword.take([:min, :max, :greater_than, :less_than])
+    |> Enum.reduce(schema, fn
+      {:min, min}, schema ->
+        Map.put(schema, :minimum, min)
+
+      {:max, max}, schema ->
+        Map.put(schema, :maximum, max)
+
+      {:greater_than, exclusive_min}, schema ->
+        Map.put(schema, :exclusiveMinimum, exclusive_min)
+
+      {:less_than, exclusive_max}, schema ->
+        Map.put(schema, :exclusiveMaximum, exclusive_max)
     end)
   end
 
