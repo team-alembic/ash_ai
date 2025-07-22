@@ -5,6 +5,19 @@ See [Conventional Commits](Https://conventionalcommits.org) for commit guideline
 
 <!-- changelog -->
 
+## [v0.2.9](https://github.com/ash-project/ash_ai/compare/v0.2.8...v0.2.9) (2025-07-22)
+
+
+
+
+### Improvements:
+
+* mark all fields as required by [@zachdaniel](https://github.com/zachdaniel)
+
+* handle number constraints by [@zachdaniel](https://github.com/zachdaniel)
+
+* Add on_tool_start and on_tool_end callbacks (#96) by [@bradleygolden](https://github.com/bradleygolden)
+
 ## [v0.2.8](https://github.com/ash-project/ash_ai/compare/v0.2.7...v0.2.8) (2025-07-17)
 
 
