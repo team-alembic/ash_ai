@@ -5,6 +5,21 @@ See [Conventional Commits](Https://conventionalcommits.org) for commit guideline
 
 <!-- changelog -->
 
+## [v0.2.10](https://github.com/ash-project/ash_ai/compare/v0.2.9...v0.2.10) (2025-08-07)
+
+
+
+
+### Bug Fixes:
+
+* log the action name (#102) by [@barnabasJ](https://github.com/barnabasJ)
+
+### Improvements:
+
+* move permissions check of tools until after appropriate filtering (#104) by [@jgwmaxwell](https://github.com/jgwmaxwell)
+
+* Add default adapter for ChatGoogleAI (#99) by [@mylanconnolly](https://github.com/mylanconnolly)
+
 ## [v0.2.9](https://github.com/ash-project/ash_ai/compare/v0.2.8...v0.2.9) (2025-07-22)
 
 
