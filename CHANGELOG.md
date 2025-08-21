@@ -5,6 +5,25 @@ See [Conventional Commits](Https://conventionalcommits.org) for commit guideline
 
 <!-- changelog -->
 
+## [v0.2.11](https://github.com/ash-project/ash_ai/compare/v0.2.10...v0.2.11) (2025-08-21)
+
+
+
+
+### Bug Fixes:
+
+* Respect resource pagination limits (#108) by kik4444
+
+* eliminate chat_live compile warning (#107) by [@andyl](https://github.com/andyl)
+
+* log the action name (#102) by [@barnabasJ](https://github.com/barnabasJ)
+
+### Improvements:
+
+* move permissions check of tools until after appropriate filtering (#104) by [@jgwmaxwell](https://github.com/jgwmaxwell)
+
+* Add default adapter for ChatGoogleAI (#99) by [@mylanconnolly](https://github.com/mylanconnolly)
+
 ## [v0.2.10](https://github.com/ash-project/ash_ai/compare/v0.2.9...v0.2.10) (2025-08-07)
 
 
