@@ -71,7 +71,17 @@ defmodule AshAi do
 
   defmodule Tool do
     @moduledoc "An action exposed to LLM agents"
-    defstruct [:name, :resource, :action, :load, :async, :domain, :identity, :description]
+    defstruct [
+      :name,
+      :resource,
+      :action,
+      :load,
+      :async,
+      :domain,
+      :identity,
+      :description,
+      :action_parameters
+    ]
   end
 
   defmodule ToolStartEvent do
@@ -120,6 +130,12 @@ defmodule AshAi do
       name: [type: :atom, required: true],
       resource: [type: {:spark, Ash.Resource}, required: true],
       action: [type: :atom, required: true],
+      action_parameters: [
+        type: {:list, :atom},
+        required: false,
+        doc:
+          "A list of action specific parameters to allow for the underlying action. Only relevant for reads, and defaults to allowing `[:sort, :offset, :limit, :result_type, :filter]`"
+      ],
       load: [
         type: :any,
         default: [],
@@ -356,7 +372,7 @@ defmodule AshAi do
     end
   end
 
-  defp parameter_schema(_domain, resource, action) do
+  defp parameter_schema(_domain, resource, action, action_parameters) do
     attributes =
       if action.type in [:action, :read] do
         %{}
@@ -400,7 +416,7 @@ defmodule AshAi do
             required: AshAi.OpenApi.required_write_attributes(resource, action.arguments, action)
           }
         }
-        |> add_action_specific_properties(resource, action),
+        |> add_action_specific_properties(resource, action, action_parameters),
       required: [:input],
       additionalProperties: false
     }
@@ -416,7 +432,8 @@ defmodule AshAi do
          load: load,
          identity: identity,
          async: async,
-         description: description
+         description: description,
+         action_parameters: action_parameters
        }) do
     name = to_string(name)
 
@@ -426,7 +443,7 @@ defmodule AshAi do
           "Call the #{action.name} action on the #{inspect(resource)} resource"
       )
 
-    parameter_schema = parameter_schema(domain, resource, action)
+    parameter_schema = parameter_schema(domain, resource, action, action_parameters)
 
     LangChain.Function.new!(%{
       name: name,
@@ -921,7 +938,12 @@ defmodule AshAi do
 
   defp parse_error(error), do: error
 
-  defp add_action_specific_properties(properties, resource, %{type: :read, pagination: pagination}) do
+  defp add_action_specific_properties(
+         properties,
+         resource,
+         %{type: :read, pagination: pagination},
+         action_parameters
+       ) do
     Map.merge(properties, %{
       filter: %{
         type: :object,
@@ -1020,9 +1042,16 @@ defmodule AshAi do
         }
       }
     })
+    |> then(fn map ->
+      if action_parameters do
+        Map.take(map, action_parameters)
+      else
+        map
+      end
+    end)
   end
 
-  defp add_action_specific_properties(properties, resource, %{type: type})
+  defp add_action_specific_properties(properties, resource, %{type: type}, _action_parameters)
        when type in [:update, :destroy] do
     pkey =
       Map.new(Ash.Resource.Info.primary_key(resource), fn key ->
@@ -1036,7 +1065,7 @@ defmodule AshAi do
     Map.merge(properties, pkey)
   end
 
-  defp add_action_specific_properties(properties, _resource, _action), do: properties
+  defp add_action_specific_properties(properties, _resource, _action, _tool), do: properties
 
   defp add_input_for_fields(sort_obj, resource) do
     resource

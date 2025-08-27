@@ -20,8 +20,8 @@ config :langchain,
 
 ## Chat Component
 
-In 
-- `lib/your_app/chat/message/changes/respond.ex` 
+In
+- `lib/your_app/chat/message/changes/respond.ex`
 - `lib/your_app/chat/conversation/changes/generate_name.ex`
 
 
@@ -95,11 +95,11 @@ end
 and in your `vectorize` block change:
 
 ```elixir
-embedding_model Roboadvisor.OpenAiEmbeddingModel
+embedding_model YourApp.OpenAiEmbeddingModel
 ```
 
 with:
 
 ```elixir
-embedding_model Roboadvisor.GoogleAiEmbeddingModel
+embedding_model YourApp.GoogleAiEmbeddingModel
 ```
