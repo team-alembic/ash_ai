@@ -423,7 +423,7 @@ defmodule AshAi do
       type: :object,
       properties:
         add_action_specific_properties(props_with_input, resource, action, action_parameters),
-      required: [:input],
+      required: Map.keys(props_with_input),
       additionalProperties: false
     }
     |> Jason.encode!()
