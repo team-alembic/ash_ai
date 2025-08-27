@@ -406,9 +406,10 @@ defmodule AshAi do
         )
       end)
 
-    %{
-      type: :object,
-      properties:
+    props_with_input =
+      if Enum.empty?(properties) do
+        %{}
+      else
         %{
           input: %{
             type: :object,
@@ -416,7 +417,12 @@ defmodule AshAi do
             required: AshAi.OpenApi.required_write_attributes(resource, action.arguments, action)
           }
         }
-        |> add_action_specific_properties(resource, action, action_parameters),
+      end
+
+    %{
+      type: :object,
+      properties:
+        add_action_specific_properties(props_with_input, resource, action, action_parameters),
       required: [:input],
       additionalProperties: false
     }
