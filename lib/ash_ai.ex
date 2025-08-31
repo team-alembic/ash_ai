@@ -333,6 +333,7 @@ defmodule AshAi do
     |> LLMChain.update_custom_context(%{
       actor: opts.actor,
       tenant: opts.tenant,
+      context: opts.context,
       tool_callbacks: %{
         on_tool_start: opts.on_tool_start,
         on_tool_end: opts.on_tool_end
