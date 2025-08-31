@@ -5,6 +5,21 @@ See [Conventional Commits](Https://conventionalcommits.org) for commit guideline
 
 <!-- changelog -->
 
+## [v0.2.12](https://github.com/ash-project/ash_ai/compare/v0.2.11...v0.2.12) (2025-08-31)
+
+
+
+
+### Bug Fixes:
+
+* pass context option through setup_ash_ai to nested actions (#111) by [@bradleygolden](https://github.com/bradleygolden)
+
+### Improvements:
+
+* don't show input if no inputs to action by [@zachdaniel](https://github.com/zachdaniel)
+
+* add `action_parameters` option by [@zachdaniel](https://github.com/zachdaniel)
+
 ## [v0.2.11](https://github.com/ash-project/ash_ai/compare/v0.2.10...v0.2.11) (2025-08-21)
 
 
