@@ -44,6 +44,7 @@ option allows including private attributes in the response data.
 
 | Name | Type | Default | Docs |
 |------|------|---------|------|
+| [`action_parameters`](#tools-tool-action_parameters){: #tools-tool-action_parameters } | `list(atom)` |  | A list of action specific parameters to allow for the underlying action. Only relevant for reads, and defaults to allowing `[:sort, :offset, :limit, :result_type, :filter]` |
 | [`load`](#tools-tool-load){: #tools-tool-load } | `any` | `[]` | A list of relationships and calculations to load on the returned records. Note that loaded fields can include private attributes, which will then be included in the tool's response. However, private attributes cannot be used for filtering, sorting, or aggregation. |
 | [`async`](#tools-tool-async){: #tools-tool-async } | `boolean` | `true` |  |
 | [`description`](#tools-tool-description){: #tools-tool-description } | `String.t` |  | A description for the tool. Defaults to the action's description. |

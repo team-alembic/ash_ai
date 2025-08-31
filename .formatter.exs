@@ -1,4 +1,5 @@
 spark_locals_without_parens = [
+  action_parameters: 1,
   ash_oban_trigger_name: 1,
   async: 1,
   attributes: 1,
