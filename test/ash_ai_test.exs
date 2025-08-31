@@ -175,11 +175,7 @@ defmodule AshAiTest do
                }
              }
 
-      assert function.parameters_schema["properties"]["input"] == %{
-               "type" => "object",
-               "properties" => %{},
-               "required" => []
-             }
+      refute function.parameters_schema["properties"]["input"]
 
       assert function.parameters_schema["properties"]["limit"] == %{
                "type" => "integer",
@@ -303,11 +299,8 @@ defmodule AshAiTest do
                "format" => "uuid"
              }
 
-      assert function.parameters_schema["properties"]["input"] == %{
-               "type" => "object",
-               "properties" => %{},
-               "required" => []
-             }
+      # no input schema because no inputs
+      refute function.parameters_schema["properties"]["input"]
 
       tool_call = tool_call(tool_name, %{"id" => artist.id})
 

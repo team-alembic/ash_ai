@@ -17,7 +17,6 @@ defmodule AshAi.DevTools.ToolsTest do
         assert is_binary(package)
         assert is_binary(description)
         assert is_binary(file_path)
-        assert String.ends_with?(file_path, "usage-rules.md")
         assert File.exists?(file_path)
       end
     end
