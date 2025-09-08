@@ -121,7 +121,7 @@ mix ash_ai.gen.chat --live
 
 The `--live` flag indicates that you wish to generate liveviews in addition to the chat resources.
 
-It currently requires a `user` resource to exist. If your `user` resource is not called `<YourApp>.Accounts.User`, provide a custom user resource with the `--user`
+It requires a `user` resource to exist. If your `user` resource is not called `<YourApp>.Accounts.User`, provide a custom user resource with the `--user`
 flag.
 
 To try it out from scratch:
@@ -141,7 +141,21 @@ and then run:
 mix ash_ai.gen.chat --live
 ```
 
+### Specify your LLM API key
+
+By default, it uses Open AI as the LLM provider so you need to specify your OpenAI API key as an environment variable (eg `OPEN_API_KEY=sk_...`).
+
+### Ensure you have Tailwind and DaisyUI
+
+The Chat UI liveview templates assume you have Tailwind and DaisyUI installed for styling purposes. DaisyUI is included in Phoenix 1.8 and later but if you generated your Phoenix app pre-1.8 then [install DaisyUI](https://daisyui.com/docs/install/).
+
+### Access the chat route
+
 You can then start your server and visit `http://localhost:4000/chat` to see the chat feature in action. You will be prompted to register first and sign in the first time.
+
+### Register tools for the chatbot
+
+You should then be able to type chat messages, but until you have some tools registered (see below) and set a default system prompt, the LLM won't know anything about your app.
 
 ## Expose actions as tool calls
 
