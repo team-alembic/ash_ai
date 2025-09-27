@@ -5,6 +5,25 @@ See [Conventional Commits](Https://conventionalcommits.org) for commit guideline
 
 <!-- changelog -->
 
+## [v0.2.13](https://github.com/ash-project/ash_ai/compare/v0.2.12...v0.2.13) (2025-09-27)
+
+
+
+
+### Bug Fixes:
+
+* minor QOL improvement to the redirection to other pages (#120) by Abdessabour Moutik [(#120)](https://github.com/ash-project/ash_ai/pull/120)
+
+* ash_ai.gen.chat to validate text presence in messages (#119) by Daniel Hoelzgen [(#119)](https://github.com/ash-project/ash_ai/pull/119)
+
+* BadMapError when LangChain/MCP calls tools without arguments (#118) by [@matthewsinclair](https://github.com/matthewsinclair) [(#118)](https://github.com/ash-project/ash_ai/pull/118)
+
+### Improvements:
+
+* don't install usage rules as part of installing ash ai by [@zachdaniel](https://github.com/zachdaniel)
+
+* Support LangChain 0.4 (#124) by Arjan Scherpenisse [(#124)](https://github.com/ash-project/ash_ai/pull/124)
+
 ## [v0.2.12](https://github.com/ash-project/ash_ai/compare/v0.2.11...v0.2.12) (2025-08-31)
 
 
