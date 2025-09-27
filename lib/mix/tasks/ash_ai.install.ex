@@ -47,16 +47,6 @@ if Code.ensure_loaded?(Igniter) do
       igniter
       |> Igniter.Project.Formatter.import_dep(:ash_ai)
       |> add_dev_mcp()
-      |> then(fn igniter ->
-        if Igniter.Project.Deps.has_dep?(igniter, :usage_rules) do
-          igniter
-        else
-          igniter
-          |> Igniter.Project.Deps.add_dep({:usage_rules, "~> 0.1"})
-          |> Igniter.apply_and_fetch_dependencies(yes: true)
-          |> Igniter.compose_task("usage_rules.install")
-        end
-      end)
     end
 
     defp add_dev_mcp(igniter) do
